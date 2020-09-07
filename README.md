@@ -1,15 +1,10 @@
 # snowland-smx
 
 [![version](https://img.shields.io/pypi/v/snowland-smx.svg)](https://pypi.python.org/pypi/snowland-smx)
-
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FASTARCHEN%2Fsnowland-smx-python.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FASTARCHEN%2Fsnowland-smx-python?ref=badge_shield)
-
 [![gitee](https://gitee.com/snowlandltd/snowland-smx-python/badge/star.svg)](https://gitee.com/snowlandltd/snowland-smx-python/stargazers)
-
 [![github](https://img.shields.io/github/stars/ASTARCHEN/snowland-smx-python)](https://img.shields.io/github/stars/ASTARCHEN/snowland-smx-python)
-
 [![download](https://img.shields.io/pypi/dm/snowland-smx.svg)](https://pypi.org/project/snowland-smx)
-
 [![wheels](https://img.shields.io/pypi/wheel/snowland-qyweixin.svg)](https://pypi.python.org/pypi/snowland-qyweixin)
 
 安装:
