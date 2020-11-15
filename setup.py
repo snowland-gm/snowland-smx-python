@@ -43,4 +43,5 @@ setup(
         'Topic :: Software Development :: Libraries'
     ],
     install_requires=load_install_requires(),
+    test_install_requires=load_install_requires('test_requirements.txt'),
 )

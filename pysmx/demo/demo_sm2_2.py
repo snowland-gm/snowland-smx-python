@@ -11,7 +11,7 @@
 __author__ = 'A.Star'
 
 from pysmx.SM2 import *
-
+from base64 import b64decode, b64encode
 from random import choices
 
 letterlist = "0123456789abcdef"
@@ -27,20 +27,26 @@ if __name__ == '__main__':
     len_para = 64
     e = get_random_str(len_para)
     hash_algorithm = 'sm3'
-    pk, sk = generate_keypair(len_para)
-    sig = Sign("你好", sk, '12345678', len_para)
-    print(Verify(sig, "你好", pk, len_para))
-    e = b"hello"
-    print('M = %s' % e)
-    C = Encrypt(e, pk, len_para, 0, hash_algorithm=hash_algorithm)
-    print('C = %s' % C)
-    print('Decrypt')
-    m = Decrypt(C, sk, len_para, hash_algorithm=hash_algorithm)
-    assert m is not None
-    M = m
-    assert e == M or e == M.decode()
+    # pk, sk = generate_keypair(len_para)
+    pk = b64decode('ImApkSAqfgyNbC/SOpG8PjD8oaoAI58YEJVr4VzkUtehT9m5rol0Tuu2tLRcpz3YFk9LxmDfFacD5oDpapVpcw==')
+    sk = b64decode('jeoVpYYVff+BvNscZQ4XMl0RIfPaVgwwK4xVBgi2dSY=')
 
-    print(M.decode())
+    # sig = Sign("你好", sk, '12345678', len_para)
+    sig = b64decode(b"PUlcyV4Hf+Yiabo5bCNg6i4puU1EHobBTRyH0e2oJlwqNqEgJBLb9Bv6qE3nvsv5NfFEVWOzenxnGzAf6Pxm6g==")
+    print("sig:", b64encode(sig))
+    print("data:", b64encode(bytes('你好', encoding='utf8')))
+    print(Verify(sig, "你好", pk, len_para))
+    # e = b"hello"
+    # print('M = %s' % e)
+    # C = Encrypt(e, pk, len_para, 0, hash_algorithm=hash_algorithm)
+    # print('C = %s' % C)
+    # print('Decrypt')
+    # m = Decrypt(C, sk, len_para, hash_algorithm=hash_algorithm)
+    # assert m is not None
+    # M = m
+    # assert e == M or e == M.decode()
+    #
+    # print(M.decode())
 
     # e  = '00ce5d9489d867867096326f3842323ab0a2f7f893181bae4dc9d4cd7ed50f31'
     # D  = '1d06dc143f1725f7eeae8a0ae94ebc62fbe4407c99a90950e46d29e7645000cb'

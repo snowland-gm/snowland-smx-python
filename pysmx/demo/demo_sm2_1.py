@@ -14,15 +14,17 @@ from collections import namedtuple
 if __name__ == '__main__':
     from pysmx.SM2 import generate_keypair
     KeyPair = namedtuple('KeyPair', ['publicKey', 'privateKey'])
-    key = generate_keypair()
-    pk = key.publicKey
-    sk = key.privateKey
+    # key = generate_keypair()
+    # pk = key.publicKey
+    # sk = key.privateKey
+    pk = 'ImApkSAqfgyNbC/SOpG8PjD8oaoAI58YEJVr4VzkUtehT9m5rol0Tuu2tLRcpz3YFk9LxmDfFacD5oDpapVpcw=='
+    sk = 'jeoVpYYVff+BvNscZQ4XMl0RIfPaVgwwK4xVBgi2dSY='
     print("sk:", sk)
     print("pk:", pk)
     a = bytes("abc"*10000, encoding='utf8')
-    st = time.clock()
+    st = time.process_time_ns()
     y = digest(a)
-    et = time.clock()
+    et = time.process_time_ns()
     print("sm3:", y)
     print("time:", et - st)
     klen = 19
@@ -30,7 +32,7 @@ if __name__ == '__main__':
     sm = SM3Type()
     sm.update('abc')
     print(sm.digest())
-    st = time.clock()
+    st = time.process_time_ns()
     a = pbkdf2_hmac('sm3', password=b"abc", salt=b'234', iterations=1000)
-    et = time.clock()
+    et = time.process_time_ns()
     print(et-st)

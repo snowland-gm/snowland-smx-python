@@ -9,11 +9,11 @@
 
 
 from pysmx.SM3 import SM3Type
+
 __always_supported = ('sm3', 'md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512',
                       'blake2b', 'blake2s',
                       'sha3_224', 'sha3_256', 'sha3_384', 'sha3_512',
                       'shake_128', 'shake_256')
-
 
 algorithms_guaranteed = set(__always_supported)
 algorithms_available = set(__always_supported)
@@ -21,8 +21,8 @@ algorithms_available = set(__always_supported)
 __all__ = __always_supported + ('new', 'algorithms_guaranteed',
                                 'algorithms_available', 'pbkdf2_hmac')
 
+__builtin_constructor_cache = {'SM3': SM3Type, 'sm3': SM3Type}
 
-__builtin_constructor_cache = {'SM3':SM3Type, 'sm3':SM3Type}
 
 def __get_builtin_constructor(name):
     cache = __builtin_constructor_cache
@@ -114,17 +114,18 @@ def __hash_new(name, data=b'', **kwargs):
 
 try:
     import _hashlib
+
     new = __hash_new
     __get_hash = __get_openssl_constructor
     algorithms_available = algorithms_available.union(
-            _hashlib.openssl_md_meth_names)
+        _hashlib.openssl_md_meth_names)
 except ImportError:
     new = __py_new
     __get_hash = __get_builtin_constructor
 
-
 _trans_5C = bytes((x ^ 0x5C) for x in range(256))
 _trans_36 = bytes((x ^ 0x36) for x in range(256))
+
 
 def pbkdf2_hmac(hash_name, password, salt, iterations, dklen=None):
     """Password based key derivation function 2 (PKCS #5 v2.0)
@@ -183,12 +184,12 @@ def pbkdf2_hmac(hash_name, password, salt, iterations, dklen=None):
 
     return dkey[:dklen]
 
+
 try:
     # OpenSSL's scrypt requires OpenSSL 1.1+
     from _hashlib import scrypt
 except ImportError:
     pass
-
 
 for __func_name in __always_supported:
     # try them all, some may not work due to the OpenSSL
@@ -198,7 +199,6 @@ for __func_name in __always_supported:
     except ValueError:
         import logging
         logging.exception('code for hash %s was not found.', __func_name)
-
 
 # Cleanup locals()
 del __always_supported, __func_name, __get_hash

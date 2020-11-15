@@ -285,16 +285,51 @@ class SM3Type(object):
 
     def __init__(self, msg=b'', encoding='utf-8'):
         self.encoding = encoding
-        self.msg = bytearray(str2bytes(msg, self.encoding))
+        # self.msg = bytearray(str2bytes(msg, self.encoding))
+
+        self.__length = 0
+        self.__block = []
+        self.B = []
+        self.iv = IV.copy()
+        if len(msg) != 0:
+            self.update(msg)
 
     def update(self, msg):
-        self.msg.extend(str2bytes(msg, self.encoding))
+        b = str2bytes(msg, self.encoding)
+        self.__length += len(b)
+        self.__block += b
+        len_block = len(self.__block)
+
+        n_block, left = divmod(len_block, self.block_size)
+        ind = n_block * self.block_size
+        self.__digest_step(self.__block[:ind])
+        self.__block = self.__block[ind:]
+
+    def __digest_step(self, msg):
+        len_msg = len(msg)
+        # if len1 % 64 != 0:
+        #     raise ValueError('msg长度必须是64的倍数')
+        if len_msg:
+            B = (msg[i:i + 64] for i in range(0, len_msg, 64))
+            self.iv = reduce(CF, B, self.iv)
 
     def digest(self):
-        return digest(self.msg, 0)
+        self.__block.append(0x80)
+        reserve1 = self.__length % 64 + 1
+        range_end = 56 if reserve1 <= 56 else 120
+        self.__block.extend([0] * (range_end - reserve1))
+        bit_length = self.__length * 8
+        self.__block.extend(struct.pack(">Q", bit_length))
+        len_block = len(self.__block)
+        B = (self.__block[i:i + 64] for i in range(0, len_block, 64))
+        y = reduce(CF, B, self.iv)
+        b = bytearray()
+        [b.extend(PUT_UINT32_BE(each)) for each in y]
+        return bytes(b)
 
     def hexdigest(self):
-        return hexdigest(self.msg, 0)
+        x = self.digest()
+        return x.hex()
 
     def copy(self):
         return copy(self)

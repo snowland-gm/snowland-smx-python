@@ -14,6 +14,7 @@ from pysmx.SM3 import KDF
 from pysmx.crypto import hashlib
 from collections import namedtuple
 from astartool.random import random_hex_string
+
 # 选择素域，设置椭圆曲线参数
 sm2_N = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123', 16)
 sm2_P = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF', 16)
@@ -91,7 +92,8 @@ def kG(k, Point, len_para):
     Temp = reduce(
         lambda x, y: AddPoint(DoublePoint(x, len_para), Point, len_para) if y is '1' else DoublePoint(x, len_para),
         bin(k)[3:], Point)
-    return ConvertJacb2Nor(Temp, len_para)
+    a = ConvertJacb2Nor(Temp, len_para)
+    return a
 
 
 def DoublePoint(Point, len_para, P=sm2_P):
@@ -111,7 +113,7 @@ def DoublePoint(Point, len_para, P=sm2_P):
         y1 = int(Point[len_para:len_2], 16)
         z1 = 1 if length == len_2 else int(Point[len_2:], 16)
         T6, T2 = (z1 * z1) % P, (y1 * y1) % P
-        T3, T4 = (x1 + T6) % P,(x1 - T6) % P
+        T3, T4 = (x1 + T6) % P, (x1 - T6) % P
         T1, T3 = (T3 * T4) % P, (y1 * z1) % P
         T4 = (T2 * 8) % P
         T5 = (x1 * T4) % P
@@ -122,10 +124,11 @@ def DoublePoint(Point, len_para, P=sm2_P):
         T4 = (T5 + ((T5 + P) >> 1) - T3) % P if T5 % 2 else (T5 + (T5 >> 1) - T3) % P
         T1 = (T1 * T4) % P
         y3 = (T1 - T2) % P
-
         form = '%%0%dx' % len_para
         form = form * 3
-        return form % (x3, y3, z3)
+        a = form % (x3, y3, z3)
+        # print("double point: ", a)
+        return a
 
 
 def AddPoint(P1, P2, len_para, P=sm2_P):
@@ -153,7 +156,9 @@ def AddPoint(P1, P2, len_para, P=sm2_P):
 
         form = '%%0%dx' % len_para
         form = form * 3
-        return form % (X3, Y3, Z3)
+        a = form % (X3, Y3, Z3)
+        # print("add point:", a)
+        return a
 
 
 def ConvertJacb2Nor(Point, len_para, P=sm2_P):
@@ -230,7 +235,6 @@ def Verify(Sign, E, PA, len_para=64, Hexstr=0, encoding='utf-8'):
     t = (r + s) % sm2_N
     if t == 0:
         return 0
-
     P1 = kG(s, sm2_G, len_para)
     P2 = kG(t, PA, len_para)
     # print(P1)
@@ -376,6 +380,7 @@ def generate_keypair(len_param=64):
     d = get_random_str(len_param)
     PA = kG(int(d, 16), sm2_G, len_param)
     return KeyPair(bytes.fromhex(PA), bytes.fromhex(d))
+
 
 if __name__ == '__main__':
     print(generate_keypair(64))

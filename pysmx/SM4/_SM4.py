@@ -77,7 +77,8 @@ def ROTL(x, n):
 def XOR(a, b):
     return list(map(lambda x, y: x ^ y, a, b))
 
-
+def XOR_BYTES(a, b):
+    return bytes(map(lambda x, y: x ^ y, a, b))
 # look up in SboxTable and get the related value.
 # args:    [in] inch: 0x00~0xFF (8 bits unsigned value).
 def sm4Sbox(idx):
@@ -144,20 +145,21 @@ class Sm4(object):
         item = list(struct.unpack_from(">IIII", bytes(in_put)))
         item.reverse()
         res = reduce(lambda x, y: [sm4F(x[3], x[2], x[1], x[0], y), x[0], x[1], x[2]], sk, item)
-        rev2 = reduce(lambda x, i: x+struct.pack(">I", i), res, b'')
-        return list(rev2)
+        # rev2 = reduce(lambda x, i: x+struct.pack(">I", i), res, b'')
+        rev2 = b''.join(map(lambda i:struct.pack(">I", i), res))
+        return rev2
 
     def sm4_crypt_ecb(self, input_data):
         # SM4-ECB block encryption/decryption
         tmp = [input_data[i:i + 16] for i in range(0, len(input_data), 16)]
-        output_data = reduce(lambda a, b: a + b, map(lambda x: self.sm4_one_round(self.sk, x), tmp), [])
-        return output_data
+        # output_data = reduce(lambda a, b: a + b, map(lambda x: self.sm4_one_round(self.sk, x), tmp), bytearray())
+        return b''.join(map(lambda x: self.sm4_one_round(self.sk, x), tmp))
 
     def sm4_crypt_cbc(self, iv, input_data):
         # SM4-CBC buffer encryption/decryption
         length = len(input_data)
         i = 0
-        output_data = []
+        output_data = bytearray()
         tmp_input = [0] * 16
         if self.mode == ENCRYPT:
             while length > 0:
@@ -170,8 +172,9 @@ class Sm4(object):
             ivs = [input_data[i:i + 16] for i in range(0, len(input_data), 16)]
             ivs.insert(0, iv)
             tmp = map(lambda x: self.sm4_one_round(self.sk, x), ivs[1:])
-            output_data = reduce(lambda a, b: a + b, map(XOR, tmp, ivs[:-1]), [])
-        return output_data
+            # output_data = reduce(lambda a, b: a + b, map(XOR, tmp, ivs[:-1]), bytearray())
+            output_data = b''.join(map(XOR_BYTES, tmp, ivs[:-1]))
+        return bytes(output_data)
 
     def sm4_crypt_pcbc(self, iv, input_data):
         """
@@ -182,7 +185,7 @@ class Sm4(object):
         """
         length = len(input_data)
         i = 0
-        output_data = []
+        output_data = bytearray()
         if self.mode == ENCRYPT:
             while length > 0:
                 tmp_input = input_data[i:i + 16]
@@ -200,9 +203,9 @@ class Sm4(object):
                 output_data.extend(out)
                 i += 16
                 length -= 16
-        return output_data
+        return bytes(output_data)
 
-    def sm4_crypt_ofb(self, iv, input_data):
+    def sm4_crypt_ofb(self, iv, input_data) -> bytes:
         """
         SM4-OFB buffer encryption/decryption
         :param iv:
@@ -211,7 +214,7 @@ class Sm4(object):
         """
         length = len(input_data)
         i = 0
-        output_data = []
+        output_data = bytearray()
         if self.mode == ENCRYPT:
             while length > 0:
                 tmp_input = input_data[i:i + 16]
@@ -234,9 +237,9 @@ class Sm4(object):
                 length -= 16
             self.mode = DECRYPT
             self.sk = self.sk[::-1]
-        return output_data
+        return bytes(output_data)
 
-    def sm4_crypt_cfb(self, iv, input_data):
+    def sm4_crypt_cfb(self, iv, input_data) -> bytes:
         """
         SM4-CFB buffer encryption/decryption
         :param iv:
@@ -245,7 +248,7 @@ class Sm4(object):
         """
         length = len(input_data)
         i = 0
-        output_data = []
+        output_data = bytearray()
         if self.mode == ENCRYPT:
             while length > 0:
                 tmp_input = input_data[i:i + 16]
@@ -267,42 +270,42 @@ class Sm4(object):
                 length -= 16
             self.mode = DECRYPT
             self.sk = self.sk[::-1]
-        return output_data
+        return bytes(output_data)
 
 
-def sm4_crypt_ecb(mode, key, data):
+def sm4_crypt_ecb(mode, key, data) -> bytes:
     sm4_d = Sm4()
     sm4_d.sm4_set_key(key, mode)
     en_data = sm4_d.sm4_crypt_ecb(data)
-    return en_data
+    return bytes(en_data)
 
 
-def sm4_crypt_cbc(mode, key, iv, data):
+def sm4_crypt_cbc(mode, key, iv, data) -> bytes:
     sm4_d = Sm4()
     sm4_d.sm4_set_key(key, mode)
     en_data = sm4_d.sm4_crypt_cbc(iv, data)
-    return en_data
+    return bytes(en_data)
 
 
-def sm4_crypt_pcbc(mode, key, iv, data):
+def sm4_crypt_pcbc(mode, key, iv, data) ->bytes:
     sm4_d = Sm4()
     sm4_d.sm4_set_key(key, mode)
     en_data = sm4_d.sm4_crypt_pcbc(iv, data)
-    return en_data
+    return bytes(en_data)
 
 
-def sm4_crypt_cfb(mode, key, iv, data):
+def sm4_crypt_cfb(mode, key, iv, data) ->bytes:
     sm4_d = Sm4()
     sm4_d.sm4_set_key(key, mode)
     en_data = sm4_d.sm4_crypt_cfb(iv, data)
-    return en_data
+    return bytes(en_data)
 
 
-def sm4_crypt_ofb(mode, key, iv, data):
+def sm4_crypt_ofb(mode, key, iv, data)->bytes:
     sm4_d = Sm4()
     sm4_d.sm4_set_key(key, mode)
     en_data = sm4_d.sm4_crypt_ofb(iv, data)
-    return en_data
+    return bytes(en_data)
 
 
 
@@ -311,7 +314,7 @@ SM4 = Sm4
 if __name__ == "__main__":
     # log_init()
     import numpy as np
-    input_data = list(np.random.randint(256, size=1024*6))
+    input_data = b''.join(np.random.randint(256, size=1024*6))
     iv_data = [0] * 16
     time.clock()
     sm4_d = Sm4()
@@ -324,6 +327,7 @@ if __name__ == "__main__":
     sm4_d.sm4_set_key(key_data, DECRYPT)
     de_data = sm4_d.sm4_crypt_ecb(en_data)
     print(de_data, "de_data:")
+    print(bytes(input_data))
     if de_data == input_data:
         print("ecb check pass")
     else:
@@ -356,7 +360,7 @@ if __name__ == "__main__":
     with open(file_path, 'rb') as f:
         file_data = f.read()
     # file_data_list = [ord(x) for x in file_data]
-    file_data_list = list(file_data)
+    file_data_list = file_data
     # 1. ECB
     sm4_d = Sm4()
     sm4_d.sm4_set_key(key_data, ENCRYPT)
