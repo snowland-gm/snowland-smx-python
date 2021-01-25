@@ -319,7 +319,7 @@ def Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
     x2 = xy[0:len_para]
     y2 = xy[len_para:2 * len_para]
     ml = len(msg)
-    t = KDF(xy, ml / 2)
+    t = KDF(xy, ml // 2)
     if int(t, 16) == 0:
         return None
     else:
@@ -361,7 +361,7 @@ def Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
     y2 = xy[len_para:len_2]
     cl = len(C2)
     # print(cl)
-    t = KDF(xy, cl / 2)
+    t = KDF(xy, cl // 2)
     if int(t, 16) == 0:
         return None
     else:
@@ -377,6 +377,11 @@ KeyPair = namedtuple('KeyPair', ['publicKey', 'privateKey'])
 
 
 def generate_keypair(len_param=64):
+    """
+    生成一对密钥， 前面是公钥，后面是私钥
+    :param len_param:
+    :return:
+    """
     d = get_random_str(len_param)
     PA = kG(int(d, 16), sm2_G, len_param)
     return KeyPair(bytes.fromhex(PA), bytes.fromhex(d))

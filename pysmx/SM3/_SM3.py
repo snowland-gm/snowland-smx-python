@@ -239,6 +239,8 @@ def hex2byte(msg):
     :param msg:
     :return:
     """
+    if isinstance(msg, bytes):
+        msg = msg.decode(encoding='utf8')
     if not isinstance(msg, str):
         raise ValueError('message must be string')
     ml = len(msg)
@@ -295,6 +297,11 @@ class SM3Type(object):
             self.update(msg)
 
     def update(self, msg):
+        """
+        适用于大文件
+        :param msg:
+        :return:
+        """
         b = str2bytes(msg, self.encoding)
         self.__length += len(b)
         self.__block += b
@@ -306,9 +313,12 @@ class SM3Type(object):
         self.__block = self.__block[ind:]
 
     def __digest_step(self, msg):
+        """
+        update的一步
+        :param msg:
+        :return:
+        """
         len_msg = len(msg)
-        # if len1 % 64 != 0:
-        #     raise ValueError('msg长度必须是64的倍数')
         if len_msg:
             B = (msg[i:i + 64] for i in range(0, len_msg, 64))
             self.iv = reduce(CF, B, self.iv)

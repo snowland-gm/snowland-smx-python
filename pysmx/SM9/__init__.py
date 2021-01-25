@@ -8,4 +8,4 @@
 # @Software: PyCharm
 
 
-raise NotImplementedError('SM9 will add in the future')
+from pysmx.SM9 import *

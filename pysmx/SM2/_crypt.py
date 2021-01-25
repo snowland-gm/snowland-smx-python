@@ -13,13 +13,14 @@ from pysmx.crypto import hashlib
 import hmac
 
 import six
+
 try:
     import simplejson as json
 except:
     import json
-from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurve, EllipticCurveSignatureAlgorithm, _CURVE_TYPES
-from cryptography.utils import register_interface, read_only_property, _check_bytes
 try:
+    from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurve, EllipticCurveSignatureAlgorithm, _CURVE_TYPES
+    from cryptography.utils import register_interface, read_only_property, _check_bytes
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.serialization import (
         load_pem_private_key,
@@ -55,6 +56,7 @@ try:
 except ImportError:
     has_crypto = False
 
+
 @register_interface(EllipticCurve)
 class SM2EllipticCurve:
     name = 'sm2sm364'
@@ -65,13 +67,13 @@ class SM2EllipticCurve:
 class SM2SM3EllipticCurveSignatureAlgorithm:
     def __init__(self, algorithm):
         self._algorithm = algorithm
+
     algorithm = read_only_property("_algorithm")
+
 
 @register_interface(EllipticCurveSignatureAlgorithm)
 class SM2SHA256EllipticCurveSignatureAlgorithm:
-    algorithm='sm2sm364'
-
-
+    algorithm = 'sm2sm364'
 
 
 @register_interface(EllipticCurveSignatureAlgorithm)
@@ -97,6 +99,7 @@ class EllipticCurvePrivateKey(object):
         The EllipticCurve that this key is on.
         """
         return
+
     def key_size(self):
         """
         Bit size of a secret scalar for the curve.
@@ -119,6 +122,7 @@ class EllipticCurvePrivateKeyWithSerialization(EllipticCurvePrivateKey):
         Returns the key serialized as bytes.
         """
 
+
 @register_interface(EllipticCurvePublicKey)
 class SM2EllipticCurvePublicKey(object):
     def verifier(self, signature, signature_algorithm):
@@ -131,7 +135,7 @@ class SM2EllipticCurvePublicKey(object):
         The EllipticCurve that this key is on.
         """
 
-    key_size=64*3
+    key_size = 64 * 3
 
     def public_numbers(self):
         """

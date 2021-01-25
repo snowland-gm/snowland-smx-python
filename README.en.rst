@@ -53,7 +53,7 @@ snowland-smx-python
     a. encrpto
 
 >>> from pysmx.SM4 import Sm4, ENCRYPT, DECRYPT
->>> key_data = b'hello word errrr...'  # 16 bytes at least
+>>> key_data = b'hello word errrr...'  # 16 bytes
 >>> sm4 = Sm4()
 >>> input_data = [1,2,3]
 >>> sm4.sm4_set_key(key_data, ENCRYPT)
@@ -62,7 +62,7 @@ snowland-smx-python
     b. decryto
 
 >>> from pysmx.SM4 import Sm4, ENCRYPT, DECRYPT
->>> key_data = b'hello word errrr...'  # 16 bytes at least
+>>> key_data = b'hello word errrr...'  # 16 bytes
 >>> sm4 = Sm4()
 >>> sm4.sm4_set_key(key_data, DECRYPT)
 >>> sm4.sm4_crypt_ecb(msg)

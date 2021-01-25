@@ -1,1 +1,2 @@
 astartool>=0.0.2
+PyECCArithmetic==1.1.0

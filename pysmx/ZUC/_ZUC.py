@@ -8,6 +8,7 @@
 # @Software: PyCharm
 
 from math import ceil
+
 S0 = [
     0x3E, 0x72, 0x5B, 0x47, 0xCA, 0xE0, 0x00, 0x33, 0x04, 0xD1, 0x54, 0x98, 0x09, 0xB9, 0x6D, 0xCB,
     0x7B, 0x1B, 0xF9, 0x32, 0xAF, 0x9D, 0x6A, 0xA5, 0xB8, 0x2D, 0xFC, 0x1D, 0x08, 0x53, 0x03, 0x90,
@@ -166,12 +167,13 @@ if '__main__' == __name__:
     zuc = ZUC(key, iv)
     # 加密过程
     import time
-    b = b"i love u"*1000
+
+    b = (c for c in b"i love u" * 1000)
     t1 = time.clock()
     out = zuc.zuc_encrypt(b)
     t2 = time.clock()
     print()
-    print(t2-t1)
+    print(t2 - t1)
     print("加密得到的字流", ["%08x" % e for e in out])
     # 解密过程
     zuc2 = ZUC(key, iv)
