@@ -7,7 +7,7 @@
 # @time: 2018/10/20 17:23
 # @Software: PyCharm
 
-from math import ceil
+from typing import Iterable
 
 S0 = [
     0x3E, 0x72, 0x5B, 0x47, 0xCA, 0xE0, 0x00, 0x33, 0x04, 0xD1, 0x54, 0x98, 0x09, 0xB9, 0x6D, 0xCB,
@@ -82,12 +82,16 @@ def make_uint31(a, b, c):
     return ((a << 23) & 0x7fffffff) | ((b << 8) & 0x7fffffff) | c
 
 
-class ZUC(object):
-    def __init__(self, key, iv):
+class ZUC(Iterable):
+    def __init__(self, key, iv, buffer_size=100):
         self.r = [0, 0]
-        self.lfsr = [0 for _ in range(16)]
+        self.lfsr = [0] * 16
         self.x = [0, 0, 0, 0]
         self.zuc_init(key, iv)
+        if buffer_size <= 0:
+            raise ValueError('buffer size <= 0 error!')
+        self.buffer_size = buffer_size
+        self.buffer = [0] * buffer_size
 
     def bit_reorganization(self):
         self.x[0] = ((self.lfsr[15] & 0x7FFF8000) << 1) | (self.lfsr[14] & 0xFFFF)
@@ -141,42 +145,20 @@ class ZUC(object):
             w = self.f()
             self.lfsr_init(w >> 1)
 
-    def zuc_generate_keystream(self, length):
-        keystream_buffer = []
+    def __next__(self):
+        self.lfsr_shift()
+        self.bit_reorganization()
+        return self.f() ^ self.x[-1]
+
+    def __iter__(self):
+        return self
+
+    def zuc_generate_keystream(self):
         self.bit_reorganization()
         self.f()  # Discard the output of F.
-
-        def itor():
-            self.lfsr_shift()
-            self.bit_reorganization()
-            return self.f() ^ self.x[-1]
-
-        keystream_buffer = [itor() for _ in range(length)]
+        self.buffer = [next(self) for _ in range(self.buffer_size)]
         self.lfsr_shift()
-        return keystream_buffer
+        return self.buffer
 
     def zuc_encrypt(self, input):
-        length = len(input)
-        key_stream = self.zuc_generate_keystream(length)
-        return [inp ^ key_stream[i] for i, inp in enumerate(input)]
-
-
-if '__main__' == __name__:
-    key = [0x00] * 16
-    iv = [0x00] * 16
-    zuc = ZUC(key, iv)
-    # 加密过程
-    import time
-
-    b = (c for c in b"i love u" * 1000)
-    t1 = time.clock()
-    out = zuc.zuc_encrypt(b)
-    t2 = time.clock()
-    print()
-    print(t2 - t1)
-    print("加密得到的字流", ["%08x" % e for e in out])
-    # 解密过程
-    zuc2 = ZUC(key, iv)
-    out2 = zuc2.zuc_encrypt(out)
-    print("解密得到的字流", ["%08x" % e for e in out2])
-    print(bytes(out2))
+        return (inp ^ next(self) for inp in input)

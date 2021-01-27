@@ -55,7 +55,6 @@ assert is_on_curve(G2, b2)
 
 
 # Elliptic curve doubling
-# @std_logging()
 def double(pt):
     x, y, z = pt
     W, S = 3 * x * x, y * z
@@ -67,8 +66,15 @@ def double(pt):
     # return newx, newy, newz
     return 2 * H * S, W * (4 * B - H) - 8 * y * y * S_squared, 8 * S * S_squared
 
-# Elliptic curve addition
-def add(p1, p2):
+
+def add(p1: FQ, p2: FQ):
+    """
+    Elliptic curve addition
+    点的加法
+    :param p1:
+    :param p2:
+    :return:
+    """
     one, zero = p1[0].__class__.one(), p1[0].__class__.zero()
     if p1[2] == zero or p2[2] == zero:
         return p1 if p2[2] == zero else p2
@@ -83,46 +89,15 @@ def add(p1, p2):
     V_cubed = V * V_squared
     W = z1 * z2
     A = U * U * W - V_cubed - 2 * V_squared_times_V2
-    # newx = V * A
-    # newy = U * (V_squared_times_V2 - A) - V_cubed * U2
-    # newz = V_cubed * W
-    # return (newx, newy, newz)
     return V * A, U * (V_squared_times_V2 - A) - V_cubed * U2, V_cubed * W
 
-
-# Elliptic curve point multiplication
-# @std_logging()
-def multiply2(pt, n):
-    if n == 0:
-        pt = (pt[0].__class__.one(), pt[0].__class__.one(), pt[0].__class__.zero())
-        return pt
-    elif n == 1:
-        return pt
-    elif n % 2 == 0:
-        return multiply(double(pt), n // 2)
-    else:
-        return add(multiply(double(pt), int(n // 2)), pt)
-
-
-# @std_logging()
-def multiply3(pt, n):
-    if n == 0:
-        return (pt[0].__class__.one(), pt[0].__class__.one(), pt[0].__class__.zero())
-    elif n == 1:
-        return pt
-    print(bin(n))
-    bin_n = bin(n)[3:]
-    result = reduce(lambda x, y: add(double(x), pt) if y == '1' else double(x), bin_n, pt)
-    return result
 
 def multiply(pt, n):
     if n == 0:
         return (pt[0].__class__.one(), pt[0].__class__.one(), pt[0].__class__.zero())
     elif n == 1:
         return pt
-    # print(bin(n))
     bin_n = bin(n)[2:]
-    # result = reduce(lambda x, y: add(double(x), pt) if y == '1' else add(double(x), pt), bin_n, pt)
     result = (pt[0].__class__.one(), pt[0].__class__.one(), pt[0].__class__.zero())
     for i in bin_n:
         result = double(result)
@@ -130,19 +105,6 @@ def multiply(pt, n):
             result = add(result, pt)
     return result
 
-def multiply4(pt, n):
-    if n == 0:
-        return (pt[0].__class__.one(), pt[0].__class__.one(), pt[0].__class__.zero())
-    elif n == 1:
-        return pt
-    bin_n = bin(n)[2:]
-    bin_rev = bin_n[::-1]
-    result = (pt[0].__class__.one(), pt[0].__class__.one(), pt[0].__class__.zero())
-    for i in bin_rev:
-        if i == '1':
-            result = add(result, pt)
-        pt = double(pt)
-    return result
 
 
 def eq(p1, p2):

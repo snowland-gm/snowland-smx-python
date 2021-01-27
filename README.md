@@ -80,7 +80,7 @@ hash_msg(s)
   a. 加密
 ```python
 from pysmx.SM4 import Sm4, ENCRYPT, DECRYPT
-key_data = b'hello word errrr...'  # 至少16字节
+key_data = b'hello word errrr...'  # 16字节
 sm4 = Sm4()
 input_data = [1,2,3]
 sm4.sm4_set_key(key_data, ENCRYPT)
@@ -95,6 +95,11 @@ sm4 = Sm4()
 sm4.sm4_set_key(key_data, DECRYPT)
 sm4.sm4_crypt_ecb(msg)
 ```
+
+## SM9
+
+
+
 ## ZUC
   waiting for update
 

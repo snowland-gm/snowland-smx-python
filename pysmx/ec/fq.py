@@ -32,9 +32,12 @@ def prime_field_inv(a, n):
     return lm % n
 
 
-# A class for field elements in FQ. Wrap a number in this class,
-# and it becomes a field element.
 class FQ(object):
+    """
+    A class for field elements in FQ. Wrap a number in this class,
+    and it becomes a field element.
+    """
+
     def __init__(self, n):
         if isinstance(n, self.__class__):
             self.n = n.n
@@ -114,8 +117,12 @@ class FQ(object):
         return cls(0)
 
 
-# Utility methods for polynomial math
 def deg(p):
+    """
+    Utility methods for polynomial math
+    :param p:
+    :return:
+    """
     d = len(p) - 1
     while p[d] == 0 and d:
         d -= 1
@@ -126,7 +133,7 @@ def poly_rounded_div(a, b):
     dega = deg(a)
     degb = deg(b)
     temp = [x for x in a]
-    o = [0 for x in a]
+    o = [0] * len(a)
     for i in range(dega - degb, -1, -1):
         o[i] = (o[i] + temp[degb + i] * prime_field_inv(b[degb], field_modulus))
         for c in range(degb + 1):

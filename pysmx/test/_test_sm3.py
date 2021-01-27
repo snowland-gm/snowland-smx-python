@@ -96,3 +96,5 @@ if '__main__' == __name__:
     print("digest:", digest(s))
     print("sm3 type:", h)
     assert digest(s) == h
+    sm3.update("abc")
+    print(sm3.hexdigest())

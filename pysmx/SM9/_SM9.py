@@ -254,6 +254,6 @@ def kem_dem_dec(master_public, identity, D, ct, v):
     C3prime = Hash_sm3(b)[:int(v // 8)]
     if C3 != C3prime:
         return FAILURE
-    pt = (chr(C2[i] ^ k1[i]) for i in range(mbytes))
+    pt = map(lambda a, b: chr(a^b), C2, k1)
     message = ''.join(pt)
     return message

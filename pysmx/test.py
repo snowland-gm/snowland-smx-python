@@ -8,3 +8,9 @@
 # @Software: PyCharm
 
 import unittest
+
+from astar_devopstool.version_announcement import generate_readme_template
+
+generate_readme_template(
+    'snowland-smx', file_name='readme.md'
+)

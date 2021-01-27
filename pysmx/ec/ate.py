@@ -12,7 +12,7 @@
 # https://github.com/gongxian-ding/gmssl-python
 
 from pysmx.ec.ec import double, add, multiply, is_on_curve, neg, twist, b, b2, b12, curve_order, G1, G2, G12, \
-    normalize, multiply2, multiply3, multiply4
+    normalize
 from pysmx.ec.fq import FQ2, FQ12, field_modulus, FQ
 
 ate_loop_count = 29793968203157093288
@@ -62,16 +62,6 @@ def cast_point_to_fq12(pt):
         return None
     x, y, z = pt
     return (FQ12([x.n] + [0] * 11), FQ12([y.n] + [0] * 11), FQ12([z.n] + [0] * 11))
-
-
-# Check consistency of the "line function"
-# a = multiply(G1, 100)
-# b = multiply2(G1, 100)
-# for i in range(100):
-#     a = multiply(G1, i)
-#     b = multiply2(G1, i)
-#     print(i)
-#     assert a == b
 
 
 one, two, three = G1, double(G1), multiply(G1, 3)
