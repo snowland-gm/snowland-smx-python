@@ -12,6 +12,9 @@ from pysmx import SM2
 from pysmx import SM4
 from pysmx import ZUC
 from pysmx import crypto
+from astartool.setuptool import get_version
 
+VERSION = (0, 3, 2, 'alpha', 1)
+__version__ = get_version(VERSION)
 
-__version__ = '0.3.1'
+del get_version
