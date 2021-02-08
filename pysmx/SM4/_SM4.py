@@ -17,8 +17,9 @@ import copy
 from pysmx.common import padding_map, unpadding_map
 import struct
 from functools import reduce
-
-
+from pysmx.block_cyphers import ENCRYPT, DECRYPT
+from pysmx.block_cyphers import BlockCyphers
+from cryptography.hazmat.primitives.ciphers.algorithms import *
 # Expanded SM4 S-boxes    Sbox table: 8bits input convert to 8 bits output
 SboxTable = [
     0xd6, 0x90, 0xe9, 0xfe, 0xcc, 0xe1, 0x3d, 0xb7, 0x16, 0xb6, 0x14, 0xc2, 0x28, 0xfb, 0x2c, 0x05,
@@ -54,9 +55,6 @@ CK = [
     0x10171e25, 0x2c333a41, 0x484f565d, 0x646b7279
 ]
 
-ENCRYPT = 0
-DECRYPT = 1
-
 
 def GET_UINT32_BE(key_data):
     return int((key_data[0] << 24) | (key_data[1] << 16) | (key_data[2] << 8) | (key_data[3]))
@@ -78,8 +76,11 @@ def ROTL(x, n):
 def XOR(a, b):
     return list(map(lambda x, y: x ^ y, a, b))
 
+
 def XOR_BYTES(a, b):
     return bytes(map(lambda x, y: x ^ y, a, b))
+
+
 # look up in SboxTable and get the related value.
 # args:    [in] inch: 0x00~0xFF (8 bits unsigned value).
 def sm4Sbox(idx):
@@ -120,35 +121,16 @@ def sm4F(x0, x1, x2, x3, rk):
     return x0 ^ sm4Lt(x1 ^ x2 ^ x3 ^ rk)
 
 
-class Sm4(object):
+class Sm4(BlockCyphers):
+    block_size = 16
+    name = 'SM4'
 
     def __init__(self, padding_method='pkcs5', unpadding_method=None):
         self.sk = [0] * 32
         self.mode = ENCRYPT
-        self.block_size = 16
-        self.__class__.block_size = 16
+        super(Sm4, self).__init__(padding_method, unpadding_method)
 
-        if isinstance(padding_method, str):
-            padding_method = padding_method.lower()
-            if padding_method in padding_map:
-                self.padding = padding_map[padding_method]
-                self.unpadding = unpadding_map[padding_method]
-            else:
-                raise ModuleNotFoundError("Module %s Not Found" % padding_method)
-        elif callable(padding_method) and callable(unpadding_method):
-            self.padding = padding_method
-            self.unpadding = unpadding_method
-        else:
-            def __func(text, bloke_size=64):
-                return text
-            self.padding = __func
-            self.unpadding = __func
-            raise UserWarning('Padding Method not Found')
-
-    def sm4_set_key(self, key_data, mode):
-        self.sm4_setkey(key_data, mode)
-
-    def sm4_setkey(self, key, mode):
+    def set_key(self, key, mode):
         k = [0] * 36
         MK = struct.unpack_from(">IIII", bytes(key))
         k[0:4] = XOR(MK, FK)
@@ -162,47 +144,22 @@ class Sm4(object):
         if mode == DECRYPT:
             self.sk.reverse()
 
-    def sm4_one_round(self, sk, in_put):
+    sm4_setkey = set_key
+    sm4_set_key = set_key
+
+    def one_round(self, sk, in_put):
         item = list(struct.unpack_from(">IIII", bytes(in_put)))
         item.reverse()
         res = reduce(lambda x, y: [sm4F(x[3], x[2], x[1], x[0], y), x[0], x[1], x[2]], sk, item)
-        rev = b''.join(map(lambda i:struct.pack(">I", i), res))
+        rev = b''.join(map(lambda i: struct.pack(">I", i), res))
         return rev
 
     def sm4_crypt_ecb(self, input_data):
-        # SM4-ECB block encryption/decryption
-        if self.mode == ENCRYPT:
-            input_data = self.padding(input_data, self.block_size)
-        tmp = [input_data[i:i + 16] for i in range(0, len(input_data), 16)]
-        # output_data = reduce(lambda a, b: a + b, map(lambda x: self.sm4_one_round(self.sk, x), tmp), bytearray())
-        output_data = b''.join(map(lambda x: self.sm4_one_round(self.sk, x), tmp))
-        if self.mode == DECRYPT:
-            output_data = self.unpadding(output_data)
-        return output_data
+        return self.crypt_ecb(input_data)
 
 
     def sm4_crypt_cbc(self, iv, input_data):
-        # SM4-CBC buffer encryption/decryption
-        i = 0
-        output_data = bytearray()
-        tmp_input = [0] * 16
-        if self.mode == ENCRYPT:
-            input_data = self.padding(input_data, self.block_size)
-            length = len(input_data)
-            while length > 0:
-                tmp_input[0:16] = XOR(input_data[i:i + 16], iv[0:16])
-                output_data += self.sm4_one_round(self.sk, tmp_input[0:16])
-                iv = copy.deepcopy(output_data[i:i + 16])
-                i += 16
-                length -= 16
-        else:
-            ivs = [input_data[i:i + 16] for i in range(0, len(input_data), 16)]
-            ivs.insert(0, iv)
-            tmp = map(lambda x: self.sm4_one_round(self.sk, x), ivs[1:])
-            # output_data = reduce(lambda a, b: a + b, map(XOR, tmp, ivs[:-1]), bytearray())
-            output_data = b''.join(map(XOR_BYTES, tmp, ivs[:-1]))
-            output_data = self.unpadding(output_data, self.block_size)
-        return bytes(output_data)
+        return self.crypt_cbc(iv, input_data)
 
     def sm4_crypt_pcbc(self, iv, input_data):
         """
@@ -211,31 +168,7 @@ class Sm4(object):
         :param input_data:
         :return:
         """
-
-        i = 0
-        output_data = bytearray()
-        if self.mode == ENCRYPT:
-            input_data = self.padding(input_data, self.block_size)
-            length = len(input_data)
-            while length > 0:
-                tmp_input = input_data[i:i + 16]
-                out = self.sm4_one_round(self.sk, XOR(iv, tmp_input[0:16]))
-                output_data.extend(out)
-                iv = copy.deepcopy(XOR(out, tmp_input))
-                i += 16
-                length -= 16
-        else:
-            length = len(input_data)
-            while length > 0:
-                tmp_input = input_data[i:i + 16]
-                out = self.sm4_one_round(self.sk, tmp_input[0:16])
-                out = XOR(out, iv)
-                iv = copy.deepcopy(XOR(out, tmp_input))
-                output_data.extend(out)
-                i += 16
-                length -= 16
-            output_data = self.unpadding(output_data, self.block_size)
-        return bytes(output_data)
+        return self.crypt_pcbc(iv, input_data)
 
     def sm4_crypt_ofb(self, iv, input_data) -> bytes:
         """
@@ -244,35 +177,7 @@ class Sm4(object):
         :param input_data:
         :return:
         """
-        i = 0
-        output_data = bytearray()
-        if self.mode == ENCRYPT:
-            input_data = self.padding(input_data, self.block_size)
-            length = len(input_data)
-            while length > 0:
-                tmp_input = input_data[i:i + 16]
-                out = self.sm4_one_round(self.sk, iv)
-                iv = out
-                out = XOR(out, tmp_input)
-                output_data.extend(out)
-                i += 16
-                length -= 16
-        else:
-            length = len(input_data)
-            self.mode = ENCRYPT
-            self.sk = self.sk[::-1]
-            while length > 0:
-                tmp_input = input_data[i:i + 16]
-                out = self.sm4_one_round(self.sk, iv)
-                iv = out
-                out = XOR(out, tmp_input)
-                output_data.extend(out)
-                i += 16
-                length -= 16
-            self.mode = DECRYPT
-            self.sk = self.sk[::-1]
-            output_data = self.padding(output_data, self.block_size)
-        return bytes(output_data)
+        return self.crypt_ofb(iv, input_data)
 
     def sm4_crypt_cfb(self, iv, input_data) -> bytes:
         """
@@ -281,41 +186,13 @@ class Sm4(object):
         :param input_data:
         :return:
         """
-
-        i = 0
-        output_data = bytearray()
-        if self.mode == ENCRYPT:
-            input_data = self.padding(input_data, self.block_size)
-            length = len(input_data)
-            while length > 0:
-                tmp_input = input_data[i:i + 16]
-                out = self.sm4_one_round(self.sk, iv)
-                iv = XOR(tmp_input, out)
-                output_data.extend(iv)
-                i += 16
-                length -= 16
-        else:
-            self.mode = ENCRYPT
-            self.sk = self.sk[::-1]
-            length = len(input_data)
-            while length > 0:
-                tmp_input = input_data[i:i + 16]
-                out = self.sm4_one_round(self.sk, iv)
-                out = XOR(out, tmp_input)
-                iv = tmp_input
-                output_data.extend(out)
-                i += 16
-                length -= 16
-            self.mode = DECRYPT
-            self.sk = self.sk[::-1]
-            output_data = self.unpadding(output_data)
-        return bytes(output_data)
+        return self.crypt_cfb(iv, input_data)
 
 
 def sm4_crypt_ecb(mode, key, data) -> bytes:
     sm4_d = Sm4()
-    sm4_d.sm4_set_key(key, mode)
-    en_data = sm4_d.sm4_crypt_ecb(data)
+    sm4_d.set_key(key, mode)
+    en_data = sm4_d.crypt_ecb(data)
     return bytes(en_data)
 
 
@@ -326,26 +203,25 @@ def sm4_crypt_cbc(mode, key, iv, data) -> bytes:
     return bytes(en_data)
 
 
-def sm4_crypt_pcbc(mode, key, iv, data) ->bytes:
+def sm4_crypt_pcbc(mode, key, iv, data) -> bytes:
     sm4_d = Sm4()
     sm4_d.sm4_set_key(key, mode)
-    en_data = sm4_d.sm4_crypt_pcbc(iv, data)
+    en_data = sm4_d.crypt_pcbc(iv, data)
     return bytes(en_data)
 
 
-def sm4_crypt_cfb(mode, key, iv, data) ->bytes:
+def sm4_crypt_cfb(mode, key, iv, data) -> bytes:
     sm4_d = Sm4()
     sm4_d.sm4_set_key(key, mode)
-    en_data = sm4_d.sm4_crypt_cfb(iv, data)
+    en_data = sm4_d.crypt_cfb(iv, data)
     return bytes(en_data)
 
 
-def sm4_crypt_ofb(mode, key, iv, data)->bytes:
+def sm4_crypt_ofb(mode, key, iv, data) -> bytes:
     sm4_d = Sm4()
     sm4_d.sm4_set_key(key, mode)
-    en_data = sm4_d.sm4_crypt_ofb(iv, data)
+    en_data = sm4_d.crypt_ofb(iv, data)
     return bytes(en_data)
-
 
 
 SM4 = Sm4

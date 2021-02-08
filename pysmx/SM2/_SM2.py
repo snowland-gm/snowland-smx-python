@@ -9,7 +9,7 @@
 
 
 from functools import reduce
-from random import choices, randint
+from random import SystemRandom
 from pysmx.SM3 import KDF
 from pysmx.crypto import hashlib
 from collections import namedtuple
@@ -56,7 +56,8 @@ def is_prime(number: (str, int), itor=10):
     if not isinstance(number, int):
         number = int(number)
     for i in range(itor):
-        a = randint(1, number - 1)
+        r = SystemRandom()
+        a = r.randint(1, number - 1)
         if modular_power(a, number - 1, number) != 1:
             return False
     return True
@@ -203,10 +204,10 @@ def Inverse(data, M, len_para=64):
 def Verify(Sign, E, PA, len_para=64, Hexstr=0, encoding='utf-8'):
     """
     验签函数
-    :param Sign: 签名 r||s
-    :param E: E消息hash
+    :param Sign: 签名 r||s， bytes、str。
+    :param E: 待确认的消息, bytes、str,或者16进制字符串，若E是16进制字符串， 那么Hexstr为1， 否则为0
     :param PA: PA公钥
-    :param len_para:
+    :param len_para: 目前是固定值64
     :param Hexstr: 是否是16进制数：1:是 0:不是
     :param encoding: 编码格式
     :return:
@@ -251,11 +252,14 @@ def Verify(Sign, E, PA, len_para=64, Hexstr=0, encoding='utf-8'):
     return r == ((e + x) % sm2_N)
 
 
-def Sign(E, DA, K, len_para, Hexstr=0, encoding='utf-8'):
+def Sign(E, DA, K, len_para=64, Hexstr=0, encoding='utf-8'):
     """签名函数
-     :param E 消息的hash, 16进制字符串
+     :param E 消息的hash, 16进制字符串或者普通字符串（str/bytes), E如果是16进制字符串, 那么Hexstr=1, 否则为0
      :param DA私钥, 16进制字符串
      :param K 随机数, 16进制字符串
+     :param len_para, 固定值 64
+     :param Hexstr E如果是16进制字符串, 那么Hexstr=1, 否则为0, 默认是0
+     :param encoding, 若E是str类型且Hexstr=0, 需提供编码方式，默认为utf-8
      """
     if Hexstr:
         e = int(E, 16)  # 输入消息本身是16进制字符串
@@ -287,12 +291,12 @@ def Sign(E, DA, K, len_para, Hexstr=0, encoding='utf-8'):
 def Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
     """
     加密函数
-    :param M: 消息
+    :param M: 消息， bytes、str或者16进制字符串， M为16进制字符串时候， Hexstr为1，否则为0
     :param PA: PA公钥
     :param len_para: 目前固定为64
     :param Hexstr: M是否是hex字符串
     :param encoding: 若M不是16进制字符串
-    :param hash_algorithm:
+    :param hash_algorithm: hash算法，标准即默认，是sm3， hashlib支持的算法这里也支持
     :return:
     """
     if Hexstr:
@@ -335,11 +339,18 @@ def Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
 def Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
     """
     解密函数，
-    :param C 密文（16进制字符串）
+    :param C 密文str、bytes或者16进制字符串， C为16进制字符串时候， Hexstr为1，否则为0
     :param DA 私钥
     :param len_para 长度，目前只支持64
+    :param Hexstr C为16进制字符串时候， Hexstr为1，否则为0
+    :param encoding 密文C的编码方式 hash算法，标准即默认，是sm3， hashlib支持的算法这里也支持
     """
-    f = getattr(hashlib, hash_algorithm)()
+    if hasattr(hashlib, hash_algorithm):
+        f = getattr(hashlib, hash_algorithm)()
+    elif callable(hash_algorithm):
+        f = hash_algorithm
+    else:
+        raise ValueError("hash_algorithm not found")
     if isinstance(DA, str):
         pass
     elif isinstance(DA, (bytes, bytearray)):

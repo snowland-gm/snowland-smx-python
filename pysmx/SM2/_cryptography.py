@@ -72,8 +72,8 @@ class SM2SM3EllipticCurveSignatureAlgorithm:
 
 
 @register_interface(EllipticCurveSignatureAlgorithm)
-class SM2SHA256EllipticCurveSignatureAlgorithm:
-    algorithm = 'sm2sm364'
+class SM2SHA25664EllipticCurveSignatureAlgorithm:
+    algorithm = 'sm2sha25664'
 
 
 @register_interface(EllipticCurveSignatureAlgorithm)
@@ -167,3 +167,5 @@ class SM2EllipticCurvePublicKey(object):
 
         from cryptography.hazmat.backends.openssl.backend import backend
         return backend.load_elliptic_curve_public_bytes(curve, data)
+
+

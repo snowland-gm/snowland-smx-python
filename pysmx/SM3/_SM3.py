@@ -14,7 +14,7 @@ from math import ceil
 from functools import reduce
 from copy import deepcopy, copy
 import struct
-
+import hashlib
 
 def rotate_left(a, k):
     k %= 32
