@@ -1,1 +1,3 @@
 astartool>=0.0.5
+snowland_ecc>=0.0.1a0
+cryptography

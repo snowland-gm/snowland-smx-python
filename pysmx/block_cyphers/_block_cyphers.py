@@ -78,7 +78,7 @@ class BlockCyphers(metaclass=ABCMeta):
         # SM4-ECB block encryption/decryption
         if self.mode == ENCRYPT:
             input_data = self.padding(input_data, self.block_size)
-        tmp = [input_data[i:i + 16] for i in range(0, len(input_data), 16)]
+        tmp = [input_data[i:i + self.block_size] for i in range(0, len(input_data), self.block_size)]
         # output_data = reduce(lambda a, b: a + b, map(lambda x: self.sm4_one_round(self.sk, x), tmp), bytearray())
         output_data = b''.join(map(lambda x: self.one_round(self.sk, x), tmp))
         if self.mode == DECRYPT:
@@ -89,18 +89,18 @@ class BlockCyphers(metaclass=ABCMeta):
         # SM4-CBC buffer encryption/decryption
         i = 0
         output_data = bytearray()
-        tmp_input = [0] * 16
+        tmp_input = [0] * self.block_size
         if self.mode == ENCRYPT:
             input_data = self.padding(input_data, self.block_size)
             length = len(input_data)
             while length > 0:
-                tmp_input[0:16] = XOR(input_data[i:i + 16], iv[0:16])
-                output_data += self.one_round(self.sk, tmp_input[0:16])
-                iv = copy.deepcopy(output_data[i:i + 16])
-                i += 16
-                length -= 16
+                tmp_input[0:self.block_size] = XOR(input_data[i:i + self.block_size], iv[0:self.block_size])
+                output_data += self.one_round(self.sk, tmp_input[0:self.block_size])
+                iv = copy.deepcopy(output_data[i:i + self.block_size])
+                i += self.block_size
+                length -= self.block_size
         else:
-            ivs = [input_data[i:i + 16] for i in range(0, len(input_data), 16)]
+            ivs = [input_data[i:i + self.block_size] for i in range(0, len(input_data), self.block_size)]
             ivs.insert(0, iv)
             tmp = map(lambda x: self.one_round(self.sk, x), ivs[1:])
             # output_data = reduce(lambda a, b: a + b, map(XOR, tmp, ivs[:-1]), bytearray())
@@ -122,22 +122,22 @@ class BlockCyphers(metaclass=ABCMeta):
             input_data = self.padding(input_data, self.block_size)
             length = len(input_data)
             while length > 0:
-                tmp_input = input_data[i:i + 16]
-                out = self.one_round(self.sk, XOR(iv, tmp_input[0:16]))
+                tmp_input = input_data[i:i + self.block_size]
+                out = self.one_round(self.sk, XOR(iv, tmp_input[0:self.block_size]))
                 output_data.extend(out)
                 iv = copy.deepcopy(XOR(out, tmp_input))
-                i += 16
-                length -= 16
+                i += self.block_size
+                length -= self.block_size
         else:
             length = len(input_data)
             while length > 0:
-                tmp_input = input_data[i:i + 16]
-                out = self.one_round(self.sk, tmp_input[0:16])
+                tmp_input = input_data[i:i + self.block_size]
+                out = self.one_round(self.sk, tmp_input[0:self.block_size])
                 out = XOR(out, iv)
                 iv = copy.deepcopy(XOR(out, tmp_input))
                 output_data.extend(out)
-                i += 16
-                length -= 16
+                i += self.block_size
+                length -= self.block_size
             output_data = self.unpadding(output_data, self.block_size)
         return bytes(output_data)
 
@@ -154,25 +154,25 @@ class BlockCyphers(metaclass=ABCMeta):
             input_data = self.padding(input_data, self.block_size)
             length = len(input_data)
             while length > 0:
-                tmp_input = input_data[i:i + 16]
+                tmp_input = input_data[i:i + self.block_size]
                 out = self.one_round(self.sk, iv)
                 iv = out
                 out = XOR(out, tmp_input)
                 output_data.extend(out)
-                i += 16
-                length -= 16
+                i += self.block_size
+                length -= self.block_size
         else:
             length = len(input_data)
             self.mode = ENCRYPT
             self.sk = self.sk[::-1]
             while length > 0:
-                tmp_input = input_data[i:i + 16]
+                tmp_input = input_data[i:i + self.block_size]
                 out = self.one_round(self.sk, iv)
                 iv = out
                 out = XOR(out, tmp_input)
                 output_data.extend(out)
-                i += 16
-                length -= 16
+                i += self.block_size
+                length -= self.block_size
             self.mode = DECRYPT
             self.sk = self.sk[::-1]
             output_data = self.padding(output_data, self.block_size)
@@ -192,24 +192,24 @@ class BlockCyphers(metaclass=ABCMeta):
             input_data = self.padding(input_data, self.block_size)
             length = len(input_data)
             while length > 0:
-                tmp_input = input_data[i:i + 16]
+                tmp_input = input_data[i:i + self.block_size]
                 out = self.one_round(self.sk, iv)
                 iv = XOR(tmp_input, out)
                 output_data.extend(iv)
-                i += 16
-                length -= 16
+                i += self.block_size
+                length -= self.block_size
         else:
             self.mode = ENCRYPT
             self.sk = self.sk[::-1]
             length = len(input_data)
             while length > 0:
-                tmp_input = input_data[i:i + 16]
+                tmp_input = input_data[i:i + self.block_size]
                 out = self.one_round(self.sk, iv)
                 out = XOR(out, tmp_input)
                 iv = tmp_input
                 output_data.extend(out)
-                i += 16
-                length -= 16
+                i += self.block_size
+                length -= self.block_size
             self.mode = DECRYPT
             self.sk = self.sk[::-1]
             output_data = self.unpadding(output_data)

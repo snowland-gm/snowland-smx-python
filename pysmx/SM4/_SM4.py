@@ -81,16 +81,21 @@ def XOR_BYTES(a, b):
     return bytes(map(lambda x, y: x ^ y, a, b))
 
 
-# look up in SboxTable and get the related value.
-# args:    [in] inch: 0x00~0xFF (8 bits unsigned value).
 def sm4Sbox(idx):
+    """
+    look up in SboxTable and get the related value.
+    args:    [in] inch: 0x00~0xFF (8 bits unsigned value).
+    """
     return SboxTable[idx]
 
 
-# Calculating round encryption key.
-# args:    [in] a: a is a 32 bits unsigned value;
-# return: sk[i]: i{0,1,2,3,...31}.
+
 def sm4CalciRK(ka):
+    """
+    Calculating round encryption key.
+    args:    [in] a: a is a 32 bits unsigned value;
+    return: sk[i]: i{0,1,2,3,...31}.
+    """
     a = PUT_UINT32_BE(ka)
     b = [sm4Sbox(i) for i in a]
     bb = GET_UINT32_BE(b)
@@ -98,26 +103,31 @@ def sm4CalciRK(ka):
     return rk
 
 
-# private F(Lt) function:
-# "T algorithm" == "L algorithm" + "t algorithm".
-# args:    [in] a: a is a 32 bits unsigned value;
-# return: c: c is calculated with line algorithm "L" and nonline algorithm "t"
 def sm4Lt(ka):
+    """
+    private F(Lt) function:
+    "T algorithm" == "L algorithm" + "t algorithm".
+    args:    [in] a: a is a 32 bits unsigned value;
+    return: c: c is calculated with line algorithm "L" and nonline algorithm "t"
+    """
     a = PUT_UINT32_BE(ka)
     b = [sm4Sbox(i) for i in a]
     bb = GET_UINT32_BE(b)
     return bb ^ (ROTL(bb, 2)) ^ (ROTL(bb, 10)) ^ (ROTL(bb, 18)) ^ (ROTL(bb, 24))
 
 
-# private F function:
-# Calculating and getting encryption/decryption contents.
-# args:    [in] x0: original contents;
-# args:    [in] x1: original contents;
-# args:    [in] x2: original contents;
-# args:    [in] x3: original contents;
-# args:    [in] rk: encryption/decryption key;
-# return the contents of encryption/decryption contents.
+
 def sm4F(x0, x1, x2, x3, rk):
+    """
+    private F function:
+    Calculating and getting encryption/decryption contents.
+    args:    [in] x0: original contents;
+    args:    [in] x1: original contents;
+    args:    [in] x2: original contents;
+    args:    [in] x3: original contents;
+    args:    [in] rk: encryption/decryption key;
+    return the contents of encryption/decryption contents.
+    """
     return x0 ^ sm4Lt(x1 ^ x2 ^ x3 ^ rk)
 
 
@@ -156,7 +166,6 @@ class Sm4(BlockCyphers):
 
     def sm4_crypt_ecb(self, input_data):
         return self.crypt_ecb(input_data)
-
 
     def sm4_crypt_cbc(self, iv, input_data):
         return self.crypt_cbc(iv, input_data)
@@ -225,3 +234,38 @@ def sm4_crypt_ofb(mode, key, iv, data) -> bytes:
 
 
 SM4 = Sm4
+
+
+class SM4BlockCyphers(BlockCyphers):
+    # TODO:
+    block_size = 16
+    name = 'SM4'
+
+    def __init__(self, key, iv=None, mode=ENCRYPT, padding_method='pkcs5', unpadding_method=None):
+        self.set_key(key, mode)
+        self.iv = iv
+        super().__init__(padding_method, unpadding_method)
+
+    def set_key(self, key, mode):
+        k = [0] * 36
+        MK = struct.unpack_from(">IIII", bytes(key))
+        k[0:4] = XOR(MK, FK)
+        item = k[1] ^ k[2]
+        for i in range(32):
+            item ^= k[i + 3]
+            k[i + 4] = k[i] ^ sm4CalciRK(item ^ CK[i])
+            item ^= k[i + 1]
+        self.sk = k[4:]
+        self.mode = mode
+        if mode == DECRYPT:
+            self.sk.reverse()
+
+    sm4_setkey = set_key
+    sm4_set_key = set_key
+
+    def one_round(self, sk, in_put):
+        item = list(struct.unpack_from(">IIII", bytes(in_put)))
+        item.reverse()
+        res = reduce(lambda x, y: [sm4F(x[3], x[2], x[1], x[0], y), x[0], x[1], x[2]], sk, item)
+        rev = b''.join(map(lambda i: struct.pack(">I", i), res))
+        return rev

@@ -49,11 +49,15 @@ def PKCS5UnPadding(text, block_size=16):
     return text[:-pad]
 
 
+PKCS7Padding = PKCS5Padding
+PKCS7UnPadding = PKCS5UnPadding
 
 padding_map = {
-    'pkcs5': PKCS5Padding
+    'pkcs5': PKCS5Padding,
+    'pkcs7': PKCS7Padding
 }
 
 unpadding_map = {
-    'pkcs5': PKCS5UnPadding
+    'pkcs5': PKCS5UnPadding,
+    'PKCS7': PKCS7UnPadding
 }

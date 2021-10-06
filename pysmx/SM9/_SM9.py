@@ -1,4 +1,4 @@
-#not /usr/bin/env python
+# not /usr/bin/env python
 # -*- coding: utf-8 -*-
 # @Author  : 河北雪域网络科技有限公司 A.Star
 # @contact: astar@snowland.ltd
@@ -15,6 +15,8 @@ from math import ceil, floor, log
 from pysmx.SM3 import KDF, Hash_sm3
 
 from random import SystemRandom
+from snowland_ecc.base import ECCAlgorithm
+
 from pysmx.ec import ec
 from pysmx.ec import ate
 from pysmx.ec import fq
@@ -137,7 +139,7 @@ def verify(master_public, identity, msg, signature):
 
     if (h < 0) | (h >= ec.curve_order):
         return FAILURE
-    if ec.is_on_curve(S, ec.b2) == False:
+    if not ec.is_on_curve(S, ec.b2):
         return FAILURE
 
     Q = public_key_extract('sign', master_public, identity)
@@ -254,6 +256,10 @@ def kem_dem_dec(master_public, identity, D, ct, v):
     C3prime = Hash_sm3(b)[:int(v // 8)]
     if C3 != C3prime:
         return FAILURE
-    pt = map(lambda a, b: chr(a^b), C2, k1)
+    pt = map(lambda a, b: chr(a ^ b), C2, k1)
     message = ''.join(pt)
     return message
+
+
+class SM9(ECCAlgorithm):
+    pass

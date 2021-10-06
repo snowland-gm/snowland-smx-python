@@ -7,7 +7,6 @@
 # @time: 2020/10/24 17:02
 # @Software: PyCharm
 
-import unittest
 
 from astar_devopstool.version_announcement import generate_readme_template
 

@@ -14,6 +14,8 @@ from pysmx.SM3 import KDF
 from pysmx.crypto import hashlib
 from collections import namedtuple
 from astartool.random import random_hex_string
+from snowland_ecc.base import ECCAlgorithm
+from snowland_ecc.curve import CurveSM2
 
 # 选择素域，设置椭圆曲线参数
 sm2_N = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123', 16)
@@ -396,6 +398,30 @@ def generate_keypair(len_param=64):
     d = get_random_str(len_param)
     PA = kG(int(d, 16), sm2_G, len_param)
     return KeyPair(bytes.fromhex(PA), bytes.fromhex(d))
+
+
+class SM2(ECCAlgorithm):
+    name = 'sm2'
+    key_size = 64
+
+    def __init__(self, pk=None, sk=None, key=None, curve=CurveSM2):
+        if key is not None:
+            pass
+        else:
+            key = KeyPair(pk, sk)
+        super().__init__(curve, key)
+
+    def sign(self, message):
+        pass
+
+    def verify(self, message):
+        pass
+
+    def encrypt(self, message, *args, **kwargs):
+        pass
+
+    def decrypt(self, message, *args, **kwargs):
+        pass
 
 
 if __name__ == '__main__':
