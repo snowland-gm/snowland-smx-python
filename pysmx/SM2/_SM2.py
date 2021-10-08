@@ -93,7 +93,7 @@ def kG(k, Point, len_para):
     """
     Point += '1'
     Temp = reduce(
-        lambda x, y: AddPoint(DoublePoint(x, len_para), Point, len_para) if y is '1' else DoublePoint(x, len_para),
+        lambda x, y: AddPoint(DoublePoint(x, len_para), Point, len_para) if y == '1' else DoublePoint(x, len_para),
         bin(k)[3:], Point)
     a = ConvertJacb2Nor(Temp, len_para)
     return a
