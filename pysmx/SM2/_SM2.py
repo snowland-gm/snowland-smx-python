@@ -14,6 +14,7 @@ from pysmx.SM3 import KDF
 from pysmx.crypto import hashlib
 from collections import namedtuple
 from astartool.random import random_hex_string
+
 # 选择素域，设置椭圆曲线参数
 sm2_N = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123', 16)
 sm2_P = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF', 16)
@@ -89,7 +90,7 @@ def kG(k, Point, len_para):
     """
     Point += '1'
     Temp = reduce(
-        lambda x, y: AddPoint(DoublePoint(x, len_para), Point, len_para) if y is '1' else DoublePoint(x, len_para),
+        lambda x, y: AddPoint(DoublePoint(x, len_para), Point, len_para) if y == '1' else DoublePoint(x, len_para),
         bin(k)[3:], Point)
     return ConvertJacb2Nor(Temp, len_para)
 
@@ -111,7 +112,7 @@ def DoublePoint(Point, len_para, P=sm2_P):
         y1 = int(Point[len_para:len_2], 16)
         z1 = 1 if length == len_2 else int(Point[len_2:], 16)
         T6, T2 = (z1 * z1) % P, (y1 * y1) % P
-        T3, T4 = (x1 + T6) % P,(x1 - T6) % P
+        T3, T4 = (x1 + T6) % P, (x1 - T6) % P
         T1, T3 = (T3 * T4) % P, (y1 * z1) % P
         T4 = (T2 * 8) % P
         T5 = (x1 * T4) % P
@@ -195,7 +196,9 @@ def Inverse(data, M, len_para=64):
     return tempA
 
 
-def Verify(Sign, E, PA, len_para=64, Hexstr=0, encoding='utf-8'):
+def Verify(Sign, E, PA, len_para=64, Hexstr=0,
+           # mode=1,
+           encoding='utf-8'):
     """
     验签函数
     :param Sign: 签名 r||s
@@ -203,6 +206,7 @@ def Verify(Sign, E, PA, len_para=64, Hexstr=0, encoding='utf-8'):
     :param PA: PA公钥
     :param len_para:
     :param Hexstr: 是否是16进制数：1:是 0:不是
+    # :param mode: 0-C1C2C3, 1-C1C3C2 (default is 1)
     :param encoding: 编码格式
     :return:
     """
@@ -247,11 +251,14 @@ def Verify(Sign, E, PA, len_para=64, Hexstr=0, encoding='utf-8'):
     return r == ((e + x) % sm2_N)
 
 
-def Sign(E, DA, K, len_para, Hexstr=0, encoding='utf-8'):
+def Sign(E, DA, K, len_para, Hexstr=0,
+         # mode=1,
+         encoding='utf-8'):
     """签名函数
      :param E 消息的hash, 16进制字符串
      :param DA私钥, 16进制字符串
      :param K 随机数, 16进制字符串
+     # :param mode: 0-C1C2C3, 1-C1C3C2 (default is 1)
      """
     if Hexstr:
         e = int(E, 16)  # 输入消息本身是16进制字符串
@@ -280,13 +287,15 @@ def Sign(E, DA, K, len_para, Hexstr=0, encoding='utf-8'):
     return bytes.fromhex(s)
 
 
-def Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
+def Encrypt(M, PA, len_para, Hexstr=0, mode=1,
+            encoding='utf-8', hash_algorithm='sm3'):
     """
     加密函数
     :param M: 消息
     :param PA: PA公钥
     :param len_para: 目前固定为64
     :param Hexstr: M是否是hex字符串
+    :param mode: 0-C1C2C3, 1-C1C3C2 (default is 1)
     :param encoding: 若M不是16进制字符串
     :param hash_algorithm:
     :return:
@@ -325,15 +334,16 @@ def Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
         # print('%s%s%s'% (x2,msg,y2))
         C3 = get_hash(hash_algorithm, '%s%s%s' % (x2, msg, y2), Hexstr=1)
         # print('C3 = %s' % C3)
-        return bytes.fromhex('%s%s%s' % (C1, C3, C2))
+        return bytes.fromhex('%s%s%s' % (C1, C3, C2)) if mode else bytes.fromhex('%s%s%s' % (C1, C2, C3))
 
 
-def Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
+def Decrypt(C, DA, len_para, Hexstr=0, mode=1, encoding='utf-8', hash_algorithm='sm3'):
     """
     解密函数，
     :param C 密文（16进制字符串）
     :param DA 私钥
     :param len_para 长度，目前只支持64
+    :param mode: 0-C1C2C3, 1-C1C3C2 (default is 1)
     """
     f = getattr(hashlib, hash_algorithm)()
     if isinstance(DA, str):
@@ -342,22 +352,26 @@ def Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
         DA = DA.hex()
     else:
         raise ValueError('DA must be str or bytes')
-    len_2 = 2 * len_para
-    len_3 = len_2 + f.digest_size * 2
     if not Hexstr:
         if isinstance(C, bytes):
             C = C.hex()
-
-    C1 = C[0:len_2]
-    C3 = C[len_2:len_3]
-    C2 = C[len_3:]
+    len_2 = 2 * len_para
+    if mode:
+        len_3 = len_2 + f.digest_size * 2
+        C1 = C[0:len_2]
+        C3 = C[len_2:len_3]
+        C2 = C[len_3:]
+    else:
+        C1 = C[0:len_2]
+        C2 = C[len_2:-f.digest_size * 2]
+        C3 = C[-f.digest_size * 2:]
     xy = kG(int(DA, 16), C1, len_para)
     # print('xy = %s' % xy)
     x2 = xy[0:len_para]
     y2 = xy[len_para:len_2]
     cl = len(C2)
     # print(cl)
-    t = KDF(xy, cl / 2)
+    t = KDF(xy, cl // 2)
     if int(t, 16) == 0:
         return None
     else:
@@ -376,6 +390,7 @@ def generate_keypair(len_param=64):
     d = get_random_str(len_param)
     PA = kG(int(d, 16), sm2_G, len_param)
     return KeyPair(bytes.fromhex(PA), bytes.fromhex(d))
+
 
 if __name__ == '__main__':
     print(generate_keypair(64))

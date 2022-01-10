@@ -40,6 +40,15 @@ if __name__ == '__main__':
     M = m
     assert e == M or e == M.decode()
 
+    print('M = %s' % e)
+    C = Encrypt(e, pk, len_para, 0, mode=0, hash_algorithm=hash_algorithm)
+    print('C = %s' % C)
+    print('Decrypt')
+    m = Decrypt(C, sk, len_para, mode=0, hash_algorithm=hash_algorithm)
+    assert m is not None
+    M = m
+    assert e == M or e == M.decode()
+
     print(M.decode())
 
     # e  = '00ce5d9489d867867096326f3842323ab0a2f7f893181bae4dc9d4cd7ed50f31'
