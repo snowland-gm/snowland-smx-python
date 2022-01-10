@@ -5,7 +5,7 @@
 [![gitee](https://gitee.com/snowlandltd/snowland-smx-python/badge/star.svg)](https://gitee.com/snowlandltd/snowland-smx-python/stargazers)
 [![github](https://img.shields.io/github/stars/ASTARCHEN/snowland-smx-python)](https://img.shields.io/github/stars/ASTARCHEN/snowland-smx-python)
 [![download](https://img.shields.io/pypi/dm/snowland-smx.svg)](https://pypi.org/project/snowland-smx)
-[![wheels](https://img.shields.io/pypi/wheel/snowland-snowland-smx.svg)](https://pypi.python.org/pypi/snowland-smx)
+[![wheels](https://img.shields.io/pypi/wheel/snowland-smx.svg)](https://pypi.python.org/pypi/snowland-smx)
 [![CodeFactor](https://www.codefactor.io/repository/github/astarchen/astartool/badge/master)](https://www.codefactor.io/repository/github/astarchen/astartool/overview/master)
 
 安装:

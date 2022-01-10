@@ -23,7 +23,7 @@ setup(
     maintainer='A.Star',
     maintainer_email='astar@snowland.ltd',
     license='BSD License',
-    packages=find_packages(),
+    packages=find_packages('pysmx'),
     platforms=["all"],
     url='https://gitee.com/snowlandltd/snowland-smx-python',
     classifiers=[
