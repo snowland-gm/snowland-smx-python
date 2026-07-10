@@ -6,12 +6,12 @@
 # @Software: PyCharm
 
 
-from pysmx.SM2._SM2 import (
+from ._SM2 import (
     Sign, Verify, Encrypt, Decrypt, generate_keypair, KeyPair
 )
 
 try:
-    from pysmx.SM2._cryptography import (
+    from ._cryptography import (
         SM2EllipticCurve,
         SM2SM3SignatureAlgorithm,
         SM2SHA256SignatureAlgorithm,

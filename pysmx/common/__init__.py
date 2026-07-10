@@ -5,5 +5,5 @@
 # @time: 2021/1/26 15:44
 # @Software: PyCharm
 
-from pysmx.common._common import *
-from pysmx.common._padding import *
+from ._common import *
+from ._padding import *

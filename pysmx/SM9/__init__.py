@@ -5,7 +5,7 @@
 # @time: 2018/11/18 22:31
 # @Software: PyCharm
 
-from pysmx.SM9._SM9 import (
+from ._SM9 import (
     Sign, Verify, Encrypt, Decrypt,
     KEM_Encapsulate, KEM_Decapsulate,
     generate_master_key,
@@ -15,7 +15,7 @@ from pysmx.SM9._SM9 import (
 )
 
 try:
-    from pysmx.SM9._cryptography import (
+    from ._cryptography import (
         SM9EllipticCurve,
         SM9SM3SignatureAlgorithm,
         SM9EllipticCurvePublicKey,

@@ -6,12 +6,12 @@
 # @Software: PyCharm
 
 
-from pysmx.SM3._SM3 import (
+from ._SM3 import (
     SM3, SM3Type, Hash_sm3, hash_msg, digest, hexdigest, KDF
 )
 
 try:
-    from pysmx.SM3._cryptography import (
+    from ._cryptography import (
         SM3HashAlgorithm,
         SM3HashContext,
         SM3HMACContext,

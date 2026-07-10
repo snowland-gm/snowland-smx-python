@@ -5,4 +5,4 @@
 # @time: 2021/1/27 21:27
 # @Software: PyCharm
 
-from pysmx.block_cyphers._block_cyphers import ENCRYPT, DECRYPT, BlockCyphers
+from ._block_cyphers import ENCRYPT, DECRYPT, BlockCyphers
