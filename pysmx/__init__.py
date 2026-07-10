@@ -5,14 +5,16 @@
 # @time: 2018/9/21 22:04
 # @Software: PyCharm
 
-from pysmx import SM3
 from pysmx import SM2
+from pysmx import SM3
 from pysmx import SM4
+from pysmx import SM9
 from pysmx import ZUC
 from pysmx import crypto
-from astartool.setuptool import get_version
+from pysmx import ecc
+from pysmx import common
+from pysmx import block_cyphers
+from pysmx import extra
 
 VERSION = (1, 0, 0, 'final', 0)
-__version__ = get_version(VERSION)
-
-del get_version
+__version__ = "1.0.0"
