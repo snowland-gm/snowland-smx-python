@@ -1,0 +1,9 @@
+include README.md
+include README.en.md
+include CHANGELOG.md
+include LICENSE
+include requirements.txt
+include test_requirements.txt
+include pyproject.toml
+include run_smx_tests.py
+graft doc
