@@ -8,24 +8,29 @@
 
 
 import re
+from pathlib import Path
 from setuptools import setup, find_packages
+
+HERE = Path(__file__).resolve().parent
 
 
 def load_install_requires(filename='requirements.txt'):
     """Load install requirements from a file, skipping comments and blanks."""
-    with open(filename, 'r') as f:
-        return [line.strip() for line in f
-                if line.strip() and not line.strip().startswith('#')]
+    return [line.strip() for line in (HERE / filename).read_text().splitlines()
+            if line.strip() and not line.strip().startswith('#')]
 
 
 def get_version():
     """Extract version string from pysmx/__init__.py without importing."""
-    with open('pysmx/__init__.py', 'r') as f:
-        content = f.read()
+    content = (HERE / 'pysmx' / '__init__.py').read_text()
     match = re.search(r"__version__\s*=\s*['\"]([^'\"]+)['\"]", content)
     if match:
         return match.group(1)
     raise RuntimeError("Unable to find version string")
+
+
+def get_readme():
+    return (HERE / 'README.en.md').read_text(encoding='utf-8')
 
 
 setup(
@@ -34,7 +39,7 @@ setup(
     description=(
         'Python implementation gm algorithm'
     ),
-    long_description=open('README.en.md').read(),
+    long_description=get_readme(),
     long_description_content_type="text/markdown",
     author='A.Star',
     author_email='astar@snowland.ltd',
