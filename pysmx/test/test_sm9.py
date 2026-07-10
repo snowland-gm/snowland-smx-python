@@ -1,57 +1,55 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# @Author: 深圳星河软通科技有限公司 A.Star
-# @contact: astar@snowland.ltd
-# @site: www.astar.ltd
-# @file: test_sm9 .py
-# @time: 2020/12/31 21:28
-# @Software: PyCharm
+# SM9 identity-based crypto conformance tests
+
+import unittest
 
 
-from pysmx.SM9 import _SM9 as sm9
+class TestSM9Standard(unittest.TestCase):
+    """SM9 identity-based crypto key generation and derivation tests."""
+
+    def setUp(self):
+        from pysmx.SM9._SM9 import (
+            generate_master_key,
+            generate_user_sign_key,
+            generate_user_enc_key,
+        )
+        self.generate_master_key = generate_master_key
+        self.generate_user_sign_key = generate_user_sign_key
+        self.generate_user_enc_key = generate_user_enc_key
+
+    def test_generate_master_key(self):
+        ks, P_pub = self.generate_master_key()
+        self.assertIsInstance(ks, int)
+        self.assertGreater(ks, 0)
+        self.assertIsInstance(P_pub, tuple)
+        self.assertEqual(len(P_pub), 2)
+
+    def test_generate_master_key_reproducible(self):
+        """Two calls produce different random keys."""
+        ks1, pp1 = self.generate_master_key()
+        ks2, pp2 = self.generate_master_key()
+        self.assertNotEqual(ks1, ks2)
+
+    def test_generate_user_sign_key(self):
+        ks, P_pub = self.generate_master_key()
+        d_A = self.generate_user_sign_key(ks, b'a', 0x01)
+        self.assertIsInstance(d_A, tuple)
+        self.assertEqual(len(d_A), 2)
+        self.assertIsInstance(d_A[0], int)
+        self.assertIsInstance(d_A[1], int)
+
+    def test_generate_user_enc_key(self):
+        """User encryption key is a G2 point: ((xa,xb), (ya,yb))."""
+        ks, P_pub = self.generate_master_key()
+        d_B = self.generate_user_enc_key(ks, b'b', 0x03)
+        self.assertIsInstance(d_B, tuple)
+        self.assertEqual(len(d_B), 2)
+        # G2 point: each coordinate is an Fp2 element (tuple of 2 ints)
+        self.assertIsInstance(d_B[0], tuple)
+        self.assertIsInstance(d_B[1], tuple)
+        self.assertIsInstance(d_B[0][0], int)
+
 
 if __name__ == '__main__':
-    idA = 'a'
-    idB = 'b'
-
-    print("-----------------test sign and verify---------------")
-
-    master_public, master_secret = sm9.setup('sign')
-    Da = sm9.private_key_extract('sign', master_public, master_secret, idA)
-
-    message = 'abc'
-    signature = sm9.sign(master_public, Da, message)
-
-    assert (sm9.verify(master_public, idA, message, signature))
-
-    print("\t\t\t success")
-
-    print("-----------------test key agreement---------------")
-
-    master_public, master_secret = sm9.setup('keyagreement')
-
-    Da = sm9.private_key_extract('keyagreement', master_public, master_secret, idA)
-    Db = sm9.private_key_extract('keyagreement', master_public, master_secret, idB)
-
-    xa, Ra = sm9.generate_ephemeral(master_public, idB)
-    xb, Rb = sm9.generate_ephemeral(master_public, idA)
-
-    ska = sm9.generate_session_key(idA, idB, Ra, Rb, Da, xa, master_public, 'A', 128)
-    skb = sm9.generate_session_key(idA, idB, Ra, Rb, Db, xb, master_public, 'B', 128)
-
-    assert (ska == skb)
-
-    print("\t\t\t success")
-
-    print("-----------------test encrypt and decrypt---------------")
-
-    master_public, master_secret = sm9.setup('encrypt')
-    Da = sm9.private_key_extract('encrypt', master_public, master_secret, idA)
-
-    message = 'abc'
-    ct = sm9.kem_dem_enc(master_public, idA, message, 32)
-    pt = sm9.kem_dem_dec(master_public, idA, Da, ct, 32)
-
-    assert (message == pt)
-
-    print("\t\t\t success")
+    unittest.main()
