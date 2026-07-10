@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# @Author: 深圳星河软通科技有限公司 A.Star
 # @contact: astar@snowland.ltd
-# @site: www.astar.ltd
 # @file: demo_sm4 .py
 # @time: 2021/1/26 18:51
 # @Software: PyCharm
+
+import os
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+from data import get_data_path
 
 from pysmx.SM4 import SM4, ENCRYPT, DECRYPT
 import time
@@ -16,12 +19,11 @@ if __name__ == "__main__":
     import numpy as np
     input_data = b''.join(np.random.randint(256, size=1024))
     iv_data = [0] * 16
-    time.clock()
     sm4_d = SM4()
     key_data = b'hello world, errr...'
     # key_data = [0x5a] * 16
     sm4_d.sm4_set_key(key_data, ENCRYPT)
-    st = time.clock()
+    st = time.perf_counter()
     en_data = sm4_d.sm4_crypt_ecb(input_data)
     print(en_data, "en_data:")
     sm4_d.sm4_set_key(key_data, DECRYPT)
@@ -33,7 +35,7 @@ if __name__ == "__main__":
     else:
         print("ecb check fail")
         raise BaseException("error")
-    et = time.clock()
+    et = time.perf_counter()
     print(et-st)
     sm4_d.sm4_set_key(key_data, ENCRYPT)
     en_data = sm4_d.sm4_crypt_cbc(iv_data, input_data)
@@ -47,11 +49,11 @@ if __name__ == "__main__":
         print("cbc check fail")
         raise BaseException("error")
     # file test
-    file_path = r"../../test2.txt"
-    ecb_path_en = r"../../test2k_ecb_en.txt"
-    ecb_path_de = r"../../test2k_ecb_de.txt"
-    cbc_path_en = r"../../test2k_cbc_en.txt"
-    cbc_path_de = r"../../test2k_cbc_de.txt"
+    file_path = get_data_path('test2.txt')
+    ecb_path_en = get_data_path('test2k_ecb_en.txt')
+    ecb_path_de = get_data_path('test2k_ecb_de.txt')
+    cbc_path_en = get_data_path('test2k_cbc_en.txt')
+    cbc_path_de = get_data_path('test2k_cbc_de.txt')
 
     key_data = [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
                 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]

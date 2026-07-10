@@ -102,3 +102,9 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# Demo generated output files
+data/test2k_ecb_en.txt
+data/test2k_ecb_de.txt
+data/test2k_cbc_en.txt
+data/test2k_cbc_de.txt
