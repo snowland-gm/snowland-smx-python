@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# @Author  : 河北雪域网络科技有限公司 A.Star
 # @contact: astar@snowland.ltd
-# @site: www.snowland.ltd
 # @file: demo_sm3.py
 # @time: 2019/5/6 15:18
 # @Software: PyCharm

@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# @Author: 深圳星河软通科技有限公司 A.Star
 # @contact: astar@snowland.ltd
-# @site: www.astar.ltd
 # @file: main_demo.py
 # @time: 2019/12/10 11:39
 # @Software: PyCharm

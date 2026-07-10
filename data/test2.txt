@@ -1,0 +1,9 @@
+This is a sample test file for SM4 file encryption demo.
+It contains multiple lines of text to demonstrate block cipher
+encryption and decryption on file data.
+
+SM4 is a block cipher standard used in China's commercial
+cryptography system (GB/T 32907-2016). It uses a 128-bit key
+and 128-bit block size, operating in ECB or CBC mode.
+
+0123456789abcdef0123456789abcdef
