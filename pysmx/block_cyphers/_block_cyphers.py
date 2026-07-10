@@ -103,7 +103,7 @@ class BlockCyphers(metaclass=ABCMeta):
             tmp = map(lambda x: self.one_round(self.sk, x), ivs[1:])
             # output_data = reduce(lambda a, b: a + b, map(XOR, tmp, ivs[:-1]), bytearray())
             output_data = b''.join(map(XOR_BYTES, tmp, ivs[:-1]))
-            output_data = self.unpadding(output_data, self.block_size)
+            output_data = self.unpadding(bytes(output_data), self.block_size)
         return bytes(output_data)
 
     def crypt_pcbc(self, iv, input_data):
@@ -136,7 +136,7 @@ class BlockCyphers(metaclass=ABCMeta):
                 output_data.extend(out)
                 i += self.block_size
                 length -= self.block_size
-            output_data = self.unpadding(output_data, self.block_size)
+            output_data = self.unpadding(bytes(output_data), self.block_size)
         return bytes(output_data)
 
     def crypt_ofb(self, iv, input_data) -> bytes:
@@ -173,7 +173,7 @@ class BlockCyphers(metaclass=ABCMeta):
                 length -= self.block_size
             self.mode = DECRYPT
             self.sk = self.sk[::-1]
-            output_data = self.padding(output_data, self.block_size)
+            output_data = self.unpadding(bytes(output_data), self.block_size)
         return bytes(output_data)
 
     def crypt_cfb(self, iv, input_data) -> bytes:
@@ -210,5 +210,5 @@ class BlockCyphers(metaclass=ABCMeta):
                 length -= self.block_size
             self.mode = DECRYPT
             self.sk = self.sk[::-1]
-            output_data = self.unpadding(output_data)
+            output_data = self.unpadding(bytes(output_data))
         return bytes(output_data)
