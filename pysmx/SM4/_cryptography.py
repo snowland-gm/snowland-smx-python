@@ -6,44 +6,26 @@
 # @Software: PyCharm
 #
 # SM4 cryptography framework integration.
+# Re-exports from pysmx.ciphers.algorithm._algorithm (pysmx.SM4 native backend).
 #
-# cryptography (>= 3.0) has built-in SM4 support.  For standard modes
-# (ECB, CBC, CFB, OFB) use Cipher(SM4(key), mode, backend=default_backend()).
-# For PCBC mode the pysmx Sm4 implementation is used.
+# Note: The SM4Algorithm descriptor implements BlockCipherAlgorithm but is not
+# compatible with Cipher() on cryptography >= 43 (which removed pluggable
+# CipherBackend). Use the convenience functions (sm4_encrypt_* / sm4_decrypt_*)
+# as the primary API instead.
 #
 
-from cryptography import utils
-from cryptography.hazmat.primitives.ciphers.algorithms import SM4 as SM4Algorithm
-from cryptography.hazmat.primitives.ciphers import (
-    BlockCipherAlgorithm, CipherAlgorithm,
+from pysmx.ciphers.algorithm._algorithm import (
+    SM4Algorithm,
+    SM4ModePCBC,
+    SM4StreamCipher,
+    sm4_encrypt_ecb,
+    sm4_decrypt_ecb,
+    sm4_encrypt_cbc,
+    sm4_decrypt_cbc,
+    sm4_encrypt_cfb,
+    sm4_decrypt_cfb,
+    sm4_encrypt_ofb,
+    sm4_decrypt_ofb,
+    sm4_encrypt_pcbc,
+    sm4_decrypt_pcbc,
 )
-from cryptography.hazmat.primitives.ciphers.modes import Mode, ECB, CBC
-
-# CFB/OFB moved to decrepit in cryptography 43+
-try:
-    from cryptography.hazmat.decrepit.ciphers.modes import CFB, OFB
-except ImportError:
-    from cryptography.hazmat.primitives.ciphers.modes import CFB, OFB
-
-
-# ---------------------------------------------------------------------------
-#  PCBC mode
-# ---------------------------------------------------------------------------
-
-class _PCBC(Mode):
-    """PCBC (Propagating CBC) mode for SM4."""
-
-    name = "PCBC"
-
-    def __init__(self, initialization_vector):
-        utils._check_byteslike("initialization_vector", initialization_vector)
-        if len(initialization_vector) != 16:
-            raise ValueError("PCBC IV must be 16 bytes")
-        self._initialization_vector = initialization_vector
-
-    @property
-    def initialization_vector(self):
-        return self._initialization_vector
-
-
-SM4ModePCBC = _PCBC
