@@ -23,15 +23,15 @@ setup(
     author_email='astar@snowland.ltd',
     maintainer='A.Star',
     maintainer_email='astar@snowland.ltd',
-    license='BSD License',
-    packages=find_packages('pysmx'),
+    license='BSD-3-Clause',
+    packages=find_packages(where='pysmx'),
+    package_dir={'': 'pysmx'},
     platforms=["all"],
     url='https://github.com/snowland-gm/snowland-smx-python',
     classifiers=[
         'Development Status :: 4 - Beta',
         'Operating System :: OS Independent',
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: BSD License',
         'Programming Language :: Python',
         'Programming Language :: Python :: Implementation',
         'Programming Language :: Python :: 2',
@@ -48,5 +48,7 @@ setup(
         'Topic :: Software Development :: Libraries'
     ],
     install_requires=load_install_requires(),
-    test_install_requires=load_install_requires('test_requirements.txt'),
+    extras_require={
+        'test': load_install_requires('test_requirements.txt'),
+    },
 )
