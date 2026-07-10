@@ -2,7 +2,7 @@
 
 ## Overview
 
-`snowland-smx` (version 0.3.2-alpha.1) is a pure Python implementation of Chinese national cryptographic algorithms (GM/T standards), including SM2, SM3, SM4, and ZUC.
+`snowland-smx` (version 1.0.0) is a pure Python implementation of Chinese national cryptographic algorithms (GM/T standards), including SM2, SM3, SM4, SM9, and ZUC.
 
 Package name: `pysmx`
 
@@ -397,7 +397,284 @@ key_stream = zuc.zuc_generate_keystream()
 
 ---
 
-## 5. crypto - Cryptographic Utilities
+## 5. SM9 - Identity-Based Cryptography
+
+`from pysmx.SM9 import ...`
+
+SM9 is an identity-based cryptographic (IBC) scheme using bilinear pairings on Barreto-Naehrig (BN) curves, supporting digital signature, encryption, and KEM.
+
+### 5.1 `generate_master_key() -> Tuple[bytes, bytes]`
+
+Generate the master key pair.
+
+| Return | Type | Description |
+|--------|------|-------------|
+| `(ks, P_pub_s)` | `(bytes, bytes)` | Master private key and master public key |
+
+### 5.2 `generate_user_sign_key(ks, ID_A, hid=1) -> bytes`
+
+Derive a user's private signing key from the master key.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `ks` | `bytes` | — | Master private signing key |
+| `ID_A` | `bytes` | — | User identity |
+| `hid` | `int` | `1` | Hash ID (0x01 for signing) |
+
+| Return | Type | Description |
+|--------|------|-------------|
+| `d_A` | `bytes` | User private signing key |
+
+### 5.3 `Sign(M, d_A, P_pub_s, hid=1) -> bytes`
+
+Sign a message using SM9.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `M` | `bytes` | — | Message to sign |
+| `d_A` | `bytes` | — | User private signing key |
+| `P_pub_s` | `bytes` | — | Master public signing key |
+| `hid` | `int` | `1` | Hash ID |
+
+| Return | Type | Description |
+|--------|------|-------------|
+| Signature | `bytes` | SM9 signature |
+
+### 5.4 `Verify(M, signature, ID_A, P_pub_s, hid=1) -> bool`
+
+Verify an SM9 signature.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `M` | `bytes` | — | Original message |
+| `signature` | `bytes` | — | Signature to verify |
+| `ID_A` | `bytes` | — | Signer identity |
+| `P_pub_s` | `bytes` | — | Master public signing key |
+| `hid` | `int` | `1` | Hash ID |
+
+| Return | Type | Description |
+|--------|------|-------------|
+| Result | `bool` | `True` if valid |
+
+### 5.5 `generate_user_enc_key(ke, ID_B, hid=3) -> bytes`
+
+Derive a user's private encryption key.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `ke` | `bytes` | — | Master private encryption key |
+| `ID_B` | `bytes` | — | User identity |
+| `hid` | `int` | `3` | Hash ID (0x03 for encryption) |
+
+### 5.6 `Encrypt(M, ID_B, P_pub_e, hid=3) -> bytes`
+
+Encrypt a message for an identity.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `M` | `bytes` | — | Plaintext |
+| `ID_B` | `bytes` | — | Recipient identity |
+| `P_pub_e` | `bytes` | — | Master public encryption key |
+| `hid` | `int` | `3` | Hash ID |
+
+### 5.7 `Decrypt(C, d_B, ID_B, hid=3) -> bytes`
+
+Decrypt an SM9 ciphertext.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `C` | `bytes` | — | Ciphertext |
+| `d_B` | `bytes` | — | User private encryption key |
+| `ID_B` | `bytes` | — | Recipient identity |
+| `hid` | `int` | `3` | Hash ID |
+
+### 5.8 `KEM_Encapsulate(ID_B, P_pub_e, klen, hid=2) -> Tuple[bytes, bytes]`
+
+SM9 key encapsulation mechanism — encapsulate a shared secret.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `ID_B` | `bytes` | Recipient identity |
+| `P_pub_e` | `bytes` | Master public encryption key |
+| `klen` | `int` | Desired key length in bytes |
+| `hid` | `int` | Hash ID (default: `2`) |
+
+| Return | Type | Description |
+|--------|------|-------------|
+| `(K, C)` | `(bytes, bytes)` | Shared secret and ciphertext |
+
+### 5.9 `KEM_Decapsulate(C1, d_B, ID_B, klen, hid=2) -> bytes`
+
+SM9 key encapsulation mechanism — decapsulate a shared secret.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `C1` | `bytes` | Ciphertext from encapsulation |
+| `d_B` | `bytes` | User private encryption key |
+| `ID_B` | `bytes` | Recipient identity |
+| `klen` | `int` | Desired key length in bytes |
+| `hid` | `int` | Hash ID |
+
+### 5.10 Utility Functions
+
+| Function | Description |
+|----------|-------------|
+| `sm9_hex(data) -> str` | Convert bytes to hex string |
+| `sm9_unhex(data) -> bytes` | Convert hex string to bytes |
+
+**Usage Example:**
+
+```python
+from pysmx.SM9 import (
+    Sign, Verify, Encrypt, Decrypt,
+    generate_master_key,
+    generate_user_sign_key,
+    generate_user_enc_key,
+    KEM_Encapsulate, KEM_Decapsulate,
+)
+
+# Signature
+ks, P_pub_s = generate_master_key()
+d_A = generate_user_sign_key(ks, b'alice', hid=1)
+sig = Sign(b'hello', d_A, P_pub_s, hid=1)
+assert Verify(b'hello', sig, b'alice', P_pub_s, hid=1)
+
+# Encryption
+ke, P_pub_e = generate_master_key()
+d_B = generate_user_enc_key(ke, b'bob', hid=3)
+c = Encrypt(b'secret', b'bob', P_pub_e, hid=3)
+m = Decrypt(c, d_B, b'bob', hid=3)
+
+# KEM
+K_enc, C = KEM_Encapsulate(b'bob', P_pub_e, 32, hid=2)
+K_dec = KEM_Decapsulate(C, d_B, b'bob', 32, hid=2)
+assert K_enc == K_dec
+```
+
+---
+
+## 6. Digital Envelope (GM/T 0010-2012)
+
+`from pysmx.extra.envelope import ...`
+
+A digital envelope combines SM2 (asymmetric) and SM4-CBC (symmetric) encryption. The SM4 symmetric key is encrypted with the receiver's SM2 public key; the payload is encrypted with the SM4 key.
+
+### 6.1 `EnvelopeResult`
+
+```python
+EnvelopeResult = namedtuple('EnvelopeResult',
+    ['encrypted_key', 'iv', 'ciphertext', 'sm2_keypair'])
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `encrypted_key` | `bytes` | SM2-encrypted SM4 key |
+| `iv` | `bytes` | SM4-CBC initialization vector |
+| `ciphertext` | `bytes` | SM4-CBC ciphertext |
+| `sm2_keypair` | `KeyPair` | SM2 key pair used (may be auto-generated) |
+
+### 6.2 `envelope_encrypt(plaintext, *, public_key=None, sm2_keypair=None, sm4_key=None, iv=None) -> EnvelopeResult`
+
+Encrypt data with a digital envelope.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `plaintext` | `bytes` | — | Data to encrypt |
+| `public_key` | `bytes` | `None` | Receiver's SM2 public key |
+| `sm2_keypair` | `KeyPair` | `None` | SM2 key pair (auto-generated if None) |
+| `sm4_key` | `bytes` | `None` | 16-byte SM4 key (auto-generated if None) |
+| `iv` | `bytes` | `None` | 16-byte IV (auto-generated if None) |
+
+### 6.3 `envelope_decrypt(encrypted_key, iv, ciphertext, private_key) -> bytes`
+
+Decrypt data from a digital envelope.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `encrypted_key` | `bytes` | SM2-encrypted SM4 key |
+| `iv` | `bytes` | 16-byte IV |
+| `ciphertext` | `bytes` | SM4-CBC ciphertext |
+| `private_key` | `KeyPair` / `bytes` | Receiver's SM2 private key |
+
+### 6.4 Convenience Functions
+
+| Function | Description |
+|----------|-------------|
+| `envelope_seal(plaintext, public_key) -> EnvelopeResult` | Encrypt for a specific receiver |
+| `envelope_open(encrypted_key, iv, ciphertext, private_key) -> bytes` | Decrypt with private key |
+
+---
+
+## 7. Padding Utilities
+
+`from pysmx.common import ...`
+
+Block cipher padding schemes.
+
+| Class | Input | Output |
+|-------|-------|--------|
+| `PKCS5Padding` | `data, block_size` | Padded bytes |
+| `PKCS5UnPadding` | `data` | Unpadded bytes |
+| `PKCS7Padding` | `data, block_size` | Padded bytes |
+| `PKCS7UnPadding` | `data` | Unpadded bytes |
+| `ZeroPadding` | `data, block_size` | Padded bytes |
+| `ZeroUnPadding` | `data` | Unpadded bytes |
+| `ISO10126Padding` | `data, block_size` | Padded bytes |
+| `ISO10126UnPadding` | `data` | Unpadded bytes |
+| `NoPadding` | `data, block_size` | Padded bytes |
+| `NoUnPadding` | `data` | Unpadded bytes |
+
+```python
+from pysmx.common import PKCS7Padding, PKCS7UnPadding
+
+padder = PKCS7Padding()
+padded = padder.pad(b'hello', block_size=16)
+
+unpadder = PKCS7UnPadding()
+original = unpadder.unpad(padded)
+```
+
+---
+
+## 8. Cryptography Hazmat Primitives
+
+`from pysmx.SM2._cryptography import ...`
+`from pysmx.SM9._cryptography import ...`
+
+Low-level cryptography primitives (compatible with `cryptography.hazmat` patterns).
+
+### 8.1 SM2 Elliptic Curve
+
+```python
+from pysmx.SM2._cryptography import (
+    SM2EllipticCurve,
+    SM2EllipticCurvePrivateKey,
+    SM2SM3SignatureAlgorithm,
+)
+
+curve = SM2EllipticCurve()
+sk = SM2EllipticCurvePrivateKey.generate(curve)
+pk = sk.public_key()
+sig = sk.sign(b'hello', SM2SM3SignatureAlgorithm())
+pk.verify(sig, b'hello', SM2SM3SignatureAlgorithm())
+c = sk.encrypt_sm2(b'hello')
+m = sk.decrypt_sm2(c)
+```
+
+### 8.2 SM9 Elliptic Curve
+
+```python
+from pysmx.SM9._cryptography import (
+    SM9EllipticCurve,
+    SM9EllipticCurvePrivateKey,
+    SM9EllipticCurvePublicKey,
+    SM9SM3SignatureAlgorithm,
+)
+```
+
+---
+
+## 9. crypto - Cryptographic Utilities
 
 `from pysmx.crypto import ...`
 
@@ -456,18 +733,18 @@ h = sm3(b'hello')
 
 ---
 
-## 6. Version Information
+## 10. Version Information
 
 ```python
 from pysmx import VERSION, __version__
 
-print(__version__)  # "0.3.2-alpha.1"
-print(VERSION)      # (0, 3, 2, 'alpha', 1)
+print(__version__)  # "1.0.0"
+print(VERSION)      # (1, 0, 0, 'final', 0)
 ```
 
 ---
 
-## 7. Quick Reference
+## 11. Quick Reference
 
 ### SM2 Sign & Verify
 
@@ -521,4 +798,42 @@ from pysmx.ZUC import ZUC
 
 zuc = ZUC(key=[0]*16, iv=[0]*16)
 keystream = zuc.zuc_generate_keystream()
+```
+
+### SM9 Sign & Verify
+
+```python
+from pysmx.SM9 import (
+    Sign, Verify, generate_master_key, generate_user_sign_key,
+)
+
+ks, P_pub_s = generate_master_key()
+d_A = generate_user_sign_key(ks, b'alice', hid=1)
+sig = Sign(b'hello', d_A, P_pub_s, hid=1)
+assert Verify(b'hello', sig, b'alice', P_pub_s, hid=1)
+```
+
+### SM9 Encrypt & Decrypt
+
+```python
+from pysmx.SM9 import (
+    Encrypt, Decrypt, generate_master_key, generate_user_enc_key,
+)
+
+ke, P_pub_e = generate_master_key()
+d_B = generate_user_enc_key(ke, b'bob', hid=3)
+c = Encrypt(b'secret', b'bob', P_pub_e, hid=3)
+m = Decrypt(c, d_B, b'bob', hid=3)
+```
+
+### Digital Envelope
+
+```python
+from pysmx.extra.envelope import envelope_seal, envelope_open
+from pysmx.SM2 import generate_keypair
+
+kp = generate_keypair()
+result = envelope_seal(b'data', kp.publicKey)
+plain = envelope_open(result.encrypted_key, result.iv,
+                      result.ciphertext, kp.privateKey)
 ```

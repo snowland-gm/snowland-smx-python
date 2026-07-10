@@ -12,7 +12,7 @@ from pysmx import ZUC
 from pysmx import crypto
 from astartool.setuptool import get_version
 
-VERSION = (0, 3, 2, 'alpha', 1)
+VERSION = (1, 0, 0, 'final', 0)
 __version__ = get_version(VERSION)
 
 del get_version

@@ -244,9 +244,128 @@ dk = pbkdf2_hmac('sm3', b'password', b'salt', iterations=100000, dklen=32)
 
 ---
 
-## SM9
+## SM9 - Identity-Based Cryptography
 
-Under development.
+SM9 is identity-based cryptography (IBC) with digital signature, encryption, and key encapsulation (KEM).
+
+### Sign & Verify
+
+```python
+from pysmx.SM9 import (
+    Sign, Verify,
+    generate_master_key, generate_user_sign_key,
+)
+
+# Generate master key
+ks, P_pub_s = generate_master_key()
+
+# Derive user signing key
+ID_A = b'alice@sm9.test'
+d_A = generate_user_sign_key(ks, ID_A, hid=1)
+
+# Sign and verify
+sig = Sign(b'hello SM9', d_A, P_pub_s, hid=1)
+assert Verify(b'hello SM9', sig, ID_A, P_pub_s, hid=1)
+```
+
+### Encrypt & Decrypt
+
+```python
+from pysmx.SM9 import (
+    Encrypt, Decrypt,
+    generate_master_key, generate_user_enc_key,
+)
+
+ke, P_pub_e = generate_master_key()
+
+ID_B = b'bob@sm9.test'
+d_B = generate_user_enc_key(ke, ID_B, hid=3)
+
+ciphertext = Encrypt(b'secret', ID_B, P_pub_e, hid=3)
+plaintext = Decrypt(ciphertext, d_B, ID_B, hid=3)
+```
+
+### Key Encapsulation (KEM)
+
+```python
+from pysmx.SM9 import KEM_Encapsulate, KEM_Decapsulate
+
+K_enc, C = KEM_Encapsulate(ID_B, P_pub_e, klen=32, hid=2)
+K_dec = KEM_Decapsulate(C, d_B, ID_B, klen=32, hid=2)
+assert K_enc == K_dec
+```
+
+#### API Reference
+
+| Function | Description |
+|----------|-------------|
+| `generate_master_key() -> (bytes, bytes)` | Generate master key pair |
+| `generate_user_sign_key(ks, ID, hid=1) -> bytes` | Derive user private signing key |
+| `generate_user_enc_key(ke, ID, hid=3) -> bytes` | Derive user private encryption key |
+| `Sign(M, d_A, P_pub_s, hid=1) -> bytes` | Sign message |
+| `Verify(M, sig, ID_A, P_pub_s, hid=1) -> bool` | Verify signature |
+| `Encrypt(M, ID_B, P_pub_e, hid=3) -> bytes` | Encrypt with identity |
+| `Decrypt(C, d_B, ID_B, hid=3) -> bytes` | Decrypt with private key |
+| `KEM_Encapsulate(ID_B, P_pub_e, klen, hid=2) -> (K, C)` | Key encapsulation |
+| `KEM_Decapsulate(C1, d_B, ID_B, klen, hid=2) -> K` | Key decapsulation |
+
+---
+
+## Digital Envelope (GM/T 0010-2012)
+
+Combines SM2 (asymmetric) and SM4-CBC (symmetric) for secure data transmission.
+
+```python
+from pysmx.extra.envelope import envelope_seal, envelope_open
+from pysmx.SM2 import generate_keypair
+
+kp = generate_keypair()
+
+# Encrypt with receiver's public key
+result = envelope_seal(b'my data', kp.publicKey)
+# result.encrypted_key  - SM2-encrypted SM4 key
+# result.iv             - SM4 initialization vector
+# result.ciphertext     - SM4-CBC ciphertext
+
+# Decrypt with receiver's private key
+plaintext = envelope_open(result.encrypted_key, result.iv,
+                          result.ciphertext, kp.privateKey)
+```
+
+#### API Reference
+
+| Function | Description |
+|----------|-------------|
+| `envelope_encrypt(plaintext, *, public_key, sm2_keypair, sm4_key, iv) -> EnvelopeResult` | Full digital envelope encryption |
+| `envelope_decrypt(encrypted_key, iv, ciphertext, private_key) -> bytes` | Full digital envelope decryption |
+| `envelope_seal(plaintext, public_key) -> EnvelopeResult` | Convenience: encrypt for receiver |
+| `envelope_open(encrypted_key, iv, ciphertext, private_key) -> bytes` | Convenience: decrypt for receiver |
+
+---
+
+## Padding Utilities
+
+Block cipher padding schemes, available from `pysmx.common`.
+
+```python
+from pysmx.common import PKCS7Padding, PKCS7UnPadding, ZeroPadding
+
+padder = PKCS7Padding()
+padded = padder.pad(b'hello', block_size=16)
+
+unpadder = PKCS7UnPadding()
+original = unpadder.unpad(padded)
+```
+
+#### Available Schemes
+
+| Scheme | Padding / Unpadding Class |
+|--------|--------------------------|
+| PKCS5 | `PKCS5Padding`, `PKCS5UnPadding` |
+| PKCS7 | `PKCS7Padding`, `PKCS7UnPadding` |
+| Zero | `ZeroPadding`, `ZeroUnPadding` |
+| ISO10126 | `ISO10126Padding`, `ISO10126UnPadding` |
+| NoPadding | `NoPadding`, `NoUnPadding` |
 
 ---
 

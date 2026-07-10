@@ -2,7 +2,7 @@
 
 ## 概述
 
-`snowland-smx` (版本 0.3.2-alpha.1) 是国密算法（GM/T 标准）的纯 Python 实现，包含 SM2、SM3、SM4 和 ZUC 算法。
+`snowland-smx` (版本 1.0.0) 是国密算法（GM/T 标准）的纯 Python 实现，包含 SM2、SM3、SM4、SM9 和 ZUC 算法。
 
 包名: `pysmx`
 
@@ -397,7 +397,284 @@ key_stream = zuc.zuc_generate_keystream()
 
 ---
 
-## 5. crypto - 密码学工具
+## 5. SM9 - 基于标识的密码算法
+
+`from pysmx.SM9 import ...`
+
+SM9 是基于标识的密码体制（IBC），使用 BN 曲线上的双线性配对，支持数字签名、加密和 KEM。
+
+### 5.1 `generate_master_key() -> Tuple[bytes, bytes]`
+
+生成主密钥对。
+
+| 返回值 | 类型 | 说明 |
+|--------|------|-------------|
+| `(ks, P_pub_s)` | `(bytes, bytes)` | 主私钥和主公钥 |
+
+### 5.2 `generate_user_sign_key(ks, ID_A, hid=1) -> bytes`
+
+从主密钥派生用户签名私钥。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|-----------|------|---------|-------------|
+| `ks` | `bytes` | — | 主签名私钥 |
+| `ID_A` | `bytes` | — | 用户标识 |
+| `hid` | `int` | `1` | 哈希标识（0x01 表示签名） |
+
+| 返回值 | 类型 | 说明 |
+|--------|------|-------------|
+| `d_A` | `bytes` | 用户签名私钥 |
+
+### 5.3 `Sign(M, d_A, P_pub_s, hid=1) -> bytes`
+
+使用 SM9 对消息签名。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|-----------|------|---------|-------------|
+| `M` | `bytes` | — | 待签名消息 |
+| `d_A` | `bytes` | — | 用户签名私钥 |
+| `P_pub_s` | `bytes` | — | 主公钥 |
+| `hid` | `int` | `1` | 哈希标识 |
+
+| 返回值 | 类型 | 说明 |
+|--------|------|-------------|
+| 签名 | `bytes` | SM9 签名 |
+
+### 5.4 `Verify(M, signature, ID_A, P_pub_s, hid=1) -> bool`
+
+验证 SM9 签名。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|-----------|------|---------|-------------|
+| `M` | `bytes` | — | 原始消息 |
+| `signature` | `bytes` | — | 待验证签名 |
+| `ID_A` | `bytes` | — | 签名者标识 |
+| `P_pub_s` | `bytes` | — | 主公钥 |
+| `hid` | `int` | `1` | 哈希标识 |
+
+| 返回值 | 类型 | 说明 |
+|--------|------|-------------|
+| 结果 | `bool` | 有效返回 `True` |
+
+### 5.5 `generate_user_enc_key(ke, ID_B, hid=3) -> bytes`
+
+派生用户加密私钥。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|-----------|------|---------|-------------|
+| `ke` | `bytes` | — | 主加密私钥 |
+| `ID_B` | `bytes` | — | 用户标识 |
+| `hid` | `int` | `3` | 哈希标识（0x03 表示加密） |
+
+### 5.6 `Encrypt(M, ID_B, P_pub_e, hid=3) -> bytes`
+
+对标识加密消息。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|-----------|------|---------|-------------|
+| `M` | `bytes` | — | 明文 |
+| `ID_B` | `bytes` | — | 接收方标识 |
+| `P_pub_e` | `bytes` | — | 主公钥 |
+| `hid` | `int` | `3` | 哈希标识 |
+
+### 5.7 `Decrypt(C, d_B, ID_B, hid=3) -> bytes`
+
+解密 SM9 密文。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|-----------|------|---------|-------------|
+| `C` | `bytes` | — | 密文 |
+| `d_B` | `bytes` | — | 用户加密私钥 |
+| `ID_B` | `bytes` | — | 接收方标识 |
+| `hid` | `int` | `3` | 哈希标识 |
+
+### 5.8 `KEM_Encapsulate(ID_B, P_pub_e, klen, hid=2) -> Tuple[bytes, bytes]`
+
+SM9 密钥封装 — 封装共享秘密。
+
+| 参数 | 类型 | 说明 |
+|-----------|------|-------------|
+| `ID_B` | `bytes` | 接收方标识 |
+| `P_pub_e` | `bytes` | 主公钥 |
+| `klen` | `int` | 期望密钥长度（字节） |
+| `hid` | `int` | 哈希标识（默认: `2`） |
+
+| 返回值 | 类型 | 说明 |
+|--------|------|-------------|
+| `(K, C)` | `(bytes, bytes)` | 共享密钥和密文 |
+
+### 5.9 `KEM_Decapsulate(C1, d_B, ID_B, klen, hid=2) -> bytes`
+
+SM9 密钥封装 — 解封装共享秘密。
+
+| 参数 | 类型 | 说明 |
+|-----------|------|-------------|
+| `C1` | `bytes` | 封装返回的密文 |
+| `d_B` | `bytes` | 用户加密私钥 |
+| `ID_B` | `bytes` | 接收方标识 |
+| `klen` | `int` | 期望密钥长度（字节） |
+| `hid` | `int` | 哈希标识 |
+
+### 5.10 工具函数
+
+| 函数 | 说明 |
+|----------|-------------|
+| `sm9_hex(data) -> str` | 字节转十六进制字符串 |
+| `sm9_unhex(data) -> bytes` | 十六进制字符串转字节 |
+
+**使用示例:**
+
+```python
+from pysmx.SM9 import (
+    Sign, Verify, Encrypt, Decrypt,
+    generate_master_key,
+    generate_user_sign_key,
+    generate_user_enc_key,
+    KEM_Encapsulate, KEM_Decapsulate,
+)
+
+# 签名与验签
+ks, P_pub_s = generate_master_key()
+d_A = generate_user_sign_key(ks, b'alice', hid=1)
+sig = Sign(b'hello', d_A, P_pub_s, hid=1)
+assert Verify(b'hello', sig, b'alice', P_pub_s, hid=1)
+
+# 加密与解密
+ke, P_pub_e = generate_master_key()
+d_B = generate_user_enc_key(ke, b'bob', hid=3)
+c = Encrypt(b'secret', b'bob', P_pub_e, hid=3)
+m = Decrypt(c, d_B, b'bob', hid=3)
+
+# 密钥封装
+K_enc, C = KEM_Encapsulate(b'bob', P_pub_e, 32, hid=2)
+K_dec = KEM_Decapsulate(C, d_B, b'bob', 32, hid=2)
+assert K_enc == K_dec
+```
+
+---
+
+## 6. 数字信封 (GM/T 0010-2012)
+
+`from pysmx.extra.envelope import ...`
+
+数字信封结合 SM2（非对称）和 SM4-CBC（对称）加密。SM4 对称密钥用接收方 SM2 公钥加密；载荷用 SM4 密钥加密。
+
+### 6.1 `EnvelopeResult`
+
+```python
+EnvelopeResult = namedtuple('EnvelopeResult',
+    ['encrypted_key', 'iv', 'ciphertext', 'sm2_keypair'])
+```
+
+| 字段 | 类型 | 说明 |
+|-------|------|-------------|
+| `encrypted_key` | `bytes` | SM2 加密的 SM4 密钥 |
+| `iv` | `bytes` | SM4-CBC 初始化向量 |
+| `ciphertext` | `bytes` | SM4-CBC 密文 |
+| `sm2_keypair` | `KeyPair` | 使用的 SM2 密钥对（可能自动生成） |
+
+### 6.2 `envelope_encrypt(plaintext, *, public_key=None, sm2_keypair=None, sm4_key=None, iv=None) -> EnvelopeResult`
+
+数字信封加密。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|-----------|------|---------|-------------|
+| `plaintext` | `bytes` | — | 待加密数据 |
+| `public_key` | `bytes` | `None` | 接收方 SM2 公钥 |
+| `sm2_keypair` | `KeyPair` | `None` | SM2 密钥对（None 时自动生成） |
+| `sm4_key` | `bytes` | `None` | 16 字节 SM4 密钥（None 时自动生成） |
+| `iv` | `bytes` | `None` | 16 字节 IV（None 时自动生成） |
+
+### 6.3 `envelope_decrypt(encrypted_key, iv, ciphertext, private_key) -> bytes`
+
+数字信封解密。
+
+| 参数 | 类型 | 说明 |
+|-----------|------|-------------|
+| `encrypted_key` | `bytes` | SM2 加密的 SM4 密钥 |
+| `iv` | `bytes` | 16 字节 IV |
+| `ciphertext` | `bytes` | SM4-CBC 密文 |
+| `private_key` | `KeyPair` / `bytes` | 接收方 SM2 私钥 |
+
+### 6.4 便捷函数
+
+| 函数 | 说明 |
+|----------|-------------|
+| `envelope_seal(plaintext, public_key) -> EnvelopeResult` | 为指定接收方加密 |
+| `envelope_open(encrypted_key, iv, ciphertext, private_key) -> bytes` | 使用私钥解密 |
+
+---
+
+## 7. 填充工具
+
+`from pysmx.common import ...`
+
+分组密码填充方案。
+
+| 类 | 输入 | 输出 |
+|-------|-------|--------|
+| `PKCS5Padding` | `data, block_size` | 填充后字节 |
+| `PKCS5UnPadding` | `data` | 去填充后字节 |
+| `PKCS7Padding` | `data, block_size` | 填充后字节 |
+| `PKCS7UnPadding` | `data` | 去填充后字节 |
+| `ZeroPadding` | `data, block_size` | 填充后字节 |
+| `ZeroUnPadding` | `data` | 去填充后字节 |
+| `ISO10126Padding` | `data, block_size` | 填充后字节 |
+| `ISO10126UnPadding` | `data` | 去填充后字节 |
+| `NoPadding` | `data, block_size` | 填充后字节 |
+| `NoUnPadding` | `data` | 去填充后字节 |
+
+```python
+from pysmx.common import PKCS7Padding, PKCS7UnPadding
+
+padder = PKCS7Padding()
+padded = padder.pad(b'hello', block_size=16)
+
+unpadder = PKCS7UnPadding()
+original = unpadder.unpad(padded)
+```
+
+---
+
+## 8. Cryptography Hazmat 底层原语
+
+`from pysmx.SM2._cryptography import ...`
+`from pysmx.SM9._cryptography import ...`
+
+底层密码原语（兼容 `cryptography.hazmat` 模式）。
+
+### 8.1 SM2 椭圆曲线
+
+```python
+from pysmx.SM2._cryptography import (
+    SM2EllipticCurve,
+    SM2EllipticCurvePrivateKey,
+    SM2SM3SignatureAlgorithm,
+)
+
+curve = SM2EllipticCurve()
+sk = SM2EllipticCurvePrivateKey.generate(curve)
+pk = sk.public_key()
+sig = sk.sign(b'hello', SM2SM3SignatureAlgorithm())
+pk.verify(sig, b'hello', SM2SM3SignatureAlgorithm())
+c = sk.encrypt_sm2(b'hello')
+m = sk.decrypt_sm2(c)
+```
+
+### 8.2 SM9 椭圆曲线
+
+```python
+from pysmx.SM9._cryptography import (
+    SM9EllipticCurve,
+    SM9EllipticCurvePrivateKey,
+    SM9EllipticCurvePublicKey,
+    SM9SM3SignatureAlgorithm,
+)
+```
+
+---
+
+## 9. crypto - 密码学工具
 
 `from pysmx.crypto import ...`
 
@@ -456,18 +733,18 @@ h = sm3(b'hello')
 
 ---
 
-## 6. 版本信息
+## 10. 版本信息
 
 ```python
 from pysmx import VERSION, __version__
 
-print(__version__)  # "0.3.2-alpha.1"
-print(VERSION)      # (0, 3, 2, 'alpha', 1)
+print(__version__)  # "1.0.0"
+print(VERSION)      # (1, 0, 0, 'final', 0)
 ```
 
 ---
 
-## 7. 快速参考
+## 11. 快速参考
 
 ### SM2 签名与验签
 
@@ -521,4 +798,42 @@ from pysmx.ZUC import ZUC
 
 zuc = ZUC(key=[0]*16, iv=[0]*16)
 keystream = zuc.zuc_generate_keystream()
+```
+
+### SM9 签名与验签
+
+```python
+from pysmx.SM9 import (
+    Sign, Verify, generate_master_key, generate_user_sign_key,
+)
+
+ks, P_pub_s = generate_master_key()
+d_A = generate_user_sign_key(ks, b'alice', hid=1)
+sig = Sign(b'hello', d_A, P_pub_s, hid=1)
+assert Verify(b'hello', sig, b'alice', P_pub_s, hid=1)
+```
+
+### SM9 加密与解密
+
+```python
+from pysmx.SM9 import (
+    Encrypt, Decrypt, generate_master_key, generate_user_enc_key,
+)
+
+ke, P_pub_e = generate_master_key()
+d_B = generate_user_enc_key(ke, b'bob', hid=3)
+c = Encrypt(b'secret', b'bob', P_pub_e, hid=3)
+m = Decrypt(c, d_B, b'bob', hid=3)
+```
+
+### 数字信封
+
+```python
+from pysmx.extra.envelope import envelope_seal, envelope_open
+from pysmx.SM2 import generate_keypair
+
+kp = generate_keypair()
+result = envelope_seal(b'data', kp.publicKey)
+plain = envelope_open(result.encrypted_key, result.iv,
+                      result.ciphertext, kp.privateKey)
 ```
