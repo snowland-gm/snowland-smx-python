@@ -13,6 +13,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pysmx.test.test_sm2 import TestSM2Standard
 from pysmx.test.test_sm3 import TestSM3Standard
 from pysmx.test.test_sm4 import TestSM4Standard
+from pysmx.test.test_sm4_block_cyphers import TestSM4BlockCyphersDecrypt
+from pysmx.test.test_sm4_stream import TestSM4Stream
 from pysmx.test.test_sm9 import TestSM9Standard
 from pysmx.test.test_zuc import TestZUCStandard, TestZUCAlgorithm
 
@@ -32,6 +34,8 @@ def main():
 
     results['SM3'] = run_suite("SM3 (GB/T 32905-2016)", TestSM3Standard)
     results['SM4'] = run_suite("SM4 (GB/T 32907-2016)", TestSM4Standard)
+    results['SM4_BC'] = run_suite("SM4 Block Cyphers (regression)", TestSM4BlockCyphersDecrypt)
+    results['SM4_Stream'] = run_suite("SM4 Stream (streaming API)", TestSM4Stream)
     results['SM2'] = run_suite("SM2 (GB/T 32918-2016)", TestSM2Standard)
     results['SM9'] = run_suite("SM9 (GMT 0044-2016)", TestSM9Standard)
     results['ZUC'] = run_suite("ZUC (GB/T 33133-2016)", TestZUCStandard)
