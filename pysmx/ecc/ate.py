@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# @Author: 深圳星河软通科技有限公司 A.Star
 # @contact: astar@snowland.ltd
-# @site: www.astar.ltd
 # @file: ate .py
 # @time: 2020/12/4 19:01
 # @Software: PyCharm
@@ -11,9 +9,9 @@
 # 代码参考开源代码
 # https://github.com/gongxian-ding/gmssl-python
 
-from pysmx.ec.ec import double, add, multiply, is_on_curve, neg, twist, b, b2, b12, curve_order, G1, G2, G12, \
+from pysmx.ecc.ec import double, add, multiply, is_on_curve, neg, twist, b, b2, b12, curve_order, G1, G2, G12, \
     normalize
-from pysmx.ec.fq import FQ2, FQ12, field_modulus, FQ
+from pysmx.ecc.fq import FQ2, FQ12, field_modulus, FQ
 
 ate_loop_count = 29793968203157093288
 log_ate_loop_count = 63
