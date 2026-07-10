@@ -46,8 +46,7 @@ setup(
     maintainer='A.Star',
     maintainer_email='astar@snowland.ltd',
     license='BSD-3-Clause',
-    packages=find_packages(where='pysmx'),
-    package_dir={'': 'pysmx'},
+    packages=find_packages(include=['pysmx', 'pysmx.*']),
     platforms=["all"],
     url='https://github.com/snowland-gm/snowland-smx-python',
     classifiers=[
