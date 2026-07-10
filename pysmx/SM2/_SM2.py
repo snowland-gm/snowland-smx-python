@@ -1,45 +1,41 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# @Author  : 河北雪域网络科技有限公司 A.Star
 # @contact: astar@snowland.ltd
-# @site: www.snowland.ltd
 # @file: _SM2.py
 # @time: 2018/12/03 15:11
 # @Software: PyCharm
 
 
 from functools import reduce
-from random import SystemRandom
+from random import choices, randint
 from pysmx.SM3 import KDF
 from pysmx.crypto import hashlib
 from collections import namedtuple
-from astartool.random import random_hex_string
-from snowland_ecc.base import ECCAlgorithm
-from snowland_ecc.curve import CurveSM2
 
-# 选择素域，设置椭圆曲线参数
+# select prime field, set elliptic curve parameters
 sm2_N = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123', 16)
 sm2_P = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF', 16)
-sm2_G = '32c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0'  # G点
+sm2_G = '32c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0'  # G point
 sm2_G_number = int(sm2_G, 16)
 sm2_a = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFC', 16)
 sm2_b = int('28E9FA9E9D9F5E344D5A9E4BCF6509A7F39789F515AB8F92DDBCBD414D940E93', 16)
-sm2_a_3 = (sm2_a + 3) % sm2_P  # 倍点用到的中间值
+sm2_a_3 = (sm2_a + 3) % sm2_P  # intermediate value for double point
 Fp = 256
+letterlist = "0123456789abcdef"
 
 
 # sm2_N = int('BDB6F4FE3E8B1D9E0DA8C0D40FC962195DFAE76F56564677', 16)
 # sm2_P = int('BDB6F4FE3E8B1D9E0DA8C0D46F4C318CEFE4AFE3B6B8551F', 16)
-# sm2_G = '4AD5F7048DE709AD51236DE65E4D4B482C836DC6E410664002BB3A02D4AAADACAE24817A4CA3A1B014B5270432DB27D2'# G点
+# sm2_G = '4AD5F7048DE709AD51236DE65E4D4B482C836DC6E410664002BB3A02D4AAADACAE24817A4CA3A1B014B5270432DB27D2'# G point
 # sm2_a = int('BB8E5E8FBC115E139FE6A814FE48AAA6F0ADA1AA5DF91985',16)
 # sm2_b = int('1854BEBDC31B21B7AEFC80AB0ECD10D5B1B3308E6DBF11C1',16)
-# sm2_a_3 = (sm2_a + 3) % sm2_P # 倍点用到的中间值
+# sm2_a_3 = (sm2_a + 3) % sm2_P # intermediate value for double point
 # Fp = 192
 
 
 def modular_power(a, n, p):
     """
-    计算a^ n % p
+    compute a^ n % p
     if n == 0:
         return 1
     elif n == 1:
@@ -49,7 +45,7 @@ def modular_power(a, n, p):
         return a % p * modular_power(temp, n // 2, p) % p
     else:
         return (modular_power(temp, n // 2, p)) % p
-    原文：https://blog.csdn.net/qq_36921652/article/details/79368299
+    original: https://blog.csdn.net/qq_36921652/article/details/79368299
     """
     return pow(a, n, p)
 
@@ -58,8 +54,7 @@ def is_prime(number: (str, int), itor=10):
     if not isinstance(number, int):
         number = int(number)
     for i in range(itor):
-        r = SystemRandom()
-        a = r.randint(1, number - 1)
+        a = randint(1, number - 1)
         if modular_power(a, number - 1, number) != 1:
             return False
     return True
@@ -80,12 +75,12 @@ def get_hash(algorithm_name, message, Hexstr=0, encoding='utf-8'):
 
 
 def get_random_str(n: int = 64):
-    return random_hex_string(n)
+    return ''.join(choices(letterlist, k=n))
 
 
 def kG(k, Point, len_para):
     """
-    kP运算
+    kP operation
     :param k:
     :param Point:
     :param len_para:
@@ -95,13 +90,12 @@ def kG(k, Point, len_para):
     Temp = reduce(
         lambda x, y: AddPoint(DoublePoint(x, len_para), Point, len_para) if y == '1' else DoublePoint(x, len_para),
         bin(k)[3:], Point)
-    a = ConvertJacb2Nor(Temp, len_para)
-    return a
+    return ConvertJacb2Nor(Temp, len_para)
 
 
 def DoublePoint(Point, len_para, P=sm2_P):
     """
-    倍点
+    double point
     :param Point:
     :param len_para:
     :param P:
@@ -115,57 +109,74 @@ def DoublePoint(Point, len_para, P=sm2_P):
         x1 = int(Point[0:len_para], 16)
         y1 = int(Point[len_para:len_2], 16)
         z1 = 1 if length == len_2 else int(Point[len_2:], 16)
-        T6, T2 = (z1 * z1) % P, (y1 * y1) % P
-        T3, T4 = (x1 + T6) % P, (x1 - T6) % P
-        T1, T3 = (T3 * T4) % P, (y1 * z1) % P
+        T6 = (z1 * z1) % P
+        T2 = (y1 * y1) % P
+        T3 = (x1 + T6) % P
+        T4 = (x1 - T6) % P
+        T1 = (T3 * T4) % P
+        T3 = (y1 * z1) % P
         T4 = (T2 * 8) % P
         T5 = (x1 * T4) % P
-        T1, T6 = (T1 * 3) % P, (sm2_a_3 * T6 * T6) % P
+        T1 = (T1 * 3) % P
+        T6 = (T6 * T6) % P
+        T6 = (sm2_a_3 * T6) % P
         T1 = (T1 + T6) % P
-        z3, T3 = (T3 + T3) % P, (T1 * T1) % P
-        T2, x3 = (T2 * T4) % P, (T3 - T5) % P
+        z3 = (T3 + T3) % P
+        T3 = (T1 * T1) % P
+        T2 = (T2 * T4) % P
+        x3 = (T3 - T5) % P
         T4 = (T5 + ((T5 + P) >> 1) - T3) % P if T5 % 2 else (T5 + (T5 >> 1) - T3) % P
         T1 = (T1 * T4) % P
         y3 = (T1 - T2) % P
+
         form = '%%0%dx' % len_para
         form = form * 3
-        a = form % (x3, y3, z3)
-        # print("double point: ", a)
-        return a
+        return form % (x3, y3, z3)
 
 
 def AddPoint(P1, P2, len_para, P=sm2_P):
-    """点加函数
-    :param P1 为Jacobian加重射影坐标
-    :param P2 为仿射坐标即z=1
+    """point add function
+    :param P1 is Jacobian projective coordinates
+    :param P2 is affine coordinates i.e. z=1
     """
     len_2 = 2 * len_para
-    l1, l2 = len(P1), len(P2)
+    l1 = len(P1)
+    l2 = len(P2)
     if (l1 < len_2) or (l2 < len_2):
         return None
     else:
-        X1, Y1 = int(P1[0:len_para], 16), int(P1[len_para:len_2], 16)
+        X1 = int(P1[0:len_para], 16)
+        Y1 = int(P1[len_para:len_2], 16)
         Z1 = 1 if l1 == len_2 else int(P1[len_2:], 16)
-        x2, y2 = int(P2[0:len_para], 16), int(P2[len_para:len_2], 16)
-        T1, T2 = (Z1 * Z1) % P, (y2 * Z1) % P
-        T3, T1 = (x2 * T1) % P, (T1 * T2) % P
-        T2, T3 = (T3 - X1) % P, (T3 + X1) % P
-        T4, T1, Z3 = (T2 * T2) % P, (T1 - Y1) % P, (Z1 * T2) % P
-        T2, T3, T5 = (T2 * T4) % P, (T3 * T4) % P, (T1 * T1) % P
-        T4, X3, T2 = (X1 * T4) % P, (T5 - T3) % P, (Y1 * T2) % P
+        x2 = int(P2[0:len_para], 16)
+        y2 = int(P2[len_para:len_2], 16)
+
+        T1 = (Z1 * Z1) % P
+        T2 = (y2 * Z1) % P
+        T3 = (x2 * T1) % P
+        T1 = (T1 * T2) % P
+        T2 = (T3 - X1) % P
+        T3 = (T3 + X1) % P
+        T4 = (T2 * T2) % P
+        T1 = (T1 - Y1) % P
+        Z3 = (Z1 * T2) % P
+        T2 = (T2 * T4) % P
+        T3 = (T3 * T4) % P
+        T5 = (T1 * T1) % P
+        T4 = (X1 * T4) % P
+        X3 = (T5 - T3) % P
+        T2 = (Y1 * T2) % P
         T3 = (T4 - X3) % P
         T1 = (T1 * T3) % P
         Y3 = (T1 - T2) % P
 
         form = '%%0%dx' % len_para
         form = form * 3
-        a = form % (X3, Y3, Z3)
-        # print("add point:", a)
-        return a
+        return form % (X3, Y3, Z3)
 
 
 def ConvertJacb2Nor(Point, len_para, P=sm2_P):
-    """Jacobian加重射影坐标转换成仿射坐标"""
+    """Jacobian projective coordinates to affine coordinates"""
     len_2 = 2 * len_para
     x = int(Point[0:len_para], 16)
     y = int(Point[len_para:len_2], 16)
@@ -187,7 +198,7 @@ def ConvertJacb2Nor(Point, len_para, P=sm2_P):
 
 
 def Inverse(data, M, len_para=64):
-    """ 求逆, 可用pow（）代替"""
+    """ find inverse, can use pow() instead"""
     tempM = M - 2
     mask_str = '8' + '0' * (len_para - 1)
     mask = int(mask_str, 16)
@@ -205,13 +216,11 @@ def Inverse(data, M, len_para=64):
 
 def Verify(Sign, E, PA, len_para=64, Hexstr=0, encoding='utf-8'):
     """
-    验签函数
-    :param Sign: 签名 r||s， bytes、str。
-    :param E: 待确认的消息, bytes、str,或者16进制字符串，若E是16进制字符串， 那么Hexstr为1， 否则为0
-    :param PA: PA公钥
-    :param len_para: 目前是固定值64
-    :param Hexstr: 是否是16进制数：1:是 0:不是
-    :param encoding: 编码格式
+    verify function
+    :param Sign: signature r||s
+    :param E: E message hash
+    :param PA: PA public key
+    :param len_para:
     :return:
     """
     if isinstance(Sign, str):
@@ -222,11 +231,11 @@ def Verify(Sign, E, PA, len_para=64, Hexstr=0, encoding='utf-8'):
         s = int(Sign.hex()[len_para:2 * len_para], 16)
 
     if Hexstr:
-        e = int(E, 16)  # 输入消息本身是16进制字符串
+        e = int(E, 16)  # input message itself is hex string
     else:
         if isinstance(E, str):
             E = E.encode(encoding)
-        E = E.hex()  # 消息转化为16进制字符串
+        E = E.hex()  # convert message to hex string
         e = int(E, 16)
 
     if isinstance(PA, str):
@@ -238,6 +247,7 @@ def Verify(Sign, E, PA, len_para=64, Hexstr=0, encoding='utf-8'):
     t = (r + s) % sm2_N
     if t == 0:
         return 0
+
     P1 = kG(s, sm2_G, len_para)
     P2 = kG(t, PA, len_para)
     # print(P1)
@@ -254,21 +264,18 @@ def Verify(Sign, E, PA, len_para=64, Hexstr=0, encoding='utf-8'):
     return r == ((e + x) % sm2_N)
 
 
-def Sign(E, DA, K, len_para=64, Hexstr=0, encoding='utf-8'):
-    """签名函数
-     :param E 消息的hash, 16进制字符串或者普通字符串（str/bytes), E如果是16进制字符串, 那么Hexstr=1, 否则为0
-     :param DA私钥, 16进制字符串
-     :param K 随机数, 16进制字符串
-     :param len_para, 固定值 64
-     :param Hexstr E如果是16进制字符串, 那么Hexstr=1, 否则为0, 默认是0
-     :param encoding, 若E是str类型且Hexstr=0, 需提供编码方式，默认为utf-8
+def Sign(E, DA, K, len_para, Hexstr=0, encoding='utf-8'):
+    """sign function
+     :param E message hash, hex string
+     :param DA private key, hex string
+     :param K random number, hex string
      """
     if Hexstr:
-        e = int(E, 16)  # 输入消息本身是16进制字符串
+        e = int(E, 16)  # input message itself is hex string
     else:
         if isinstance(E, str):
             E = E.encode(encoding)
-        E = E.hex()  # 消息转化为16进制字符串
+        E = E.hex()  # convert message to hex string
         e = int(E, 16)
     if isinstance(DA, str):
         d = int(DA, 16)
@@ -290,25 +297,28 @@ def Sign(E, DA, K, len_para=64, Hexstr=0, encoding='utf-8'):
     return bytes.fromhex(s)
 
 
-def Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
+def Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3',
+            mode='C1C3C2'):
     """
-    加密函数
-    :param M: 消息， bytes、str或者16进制字符串， M为16进制字符串时候， Hexstr为1，否则为0
-    :param PA: PA公钥
-    :param len_para: 目前固定为64
-    :param Hexstr: M是否是hex字符串
-    :param encoding: 若M不是16进制字符串
-    :param hash_algorithm: hash算法，标准即默认，是sm3， hashlib支持的算法这里也支持
+    encrypt function
+    :param M: message
+    :param PA: PA public key
+    :param len_para: currently fixed to 64
+    :param Hexstr: whether M is hex string
+    :param encoding: if M is not hex string
+    :param hash_algorithm:
+    :param mode: ciphertext mode, 'C1C3C2' (default, same as gmssl)
+                 or 'C1C2C3'
     :return:
     """
     if Hexstr:
-        msg = M  # 输入消息本身是16进制字符串
+        msg = M  # input message itself is hex string
     else:
         if isinstance(M, str):
             msg = M.encode(encoding)
         else:
             msg = M
-        msg = msg.hex()  # 消息转化为16进制字符串
+        msg = msg.hex()  # convert message to hex string
     if isinstance(PA, str):
         pass
     elif isinstance(PA, (bytes, bytearray)):
@@ -335,24 +345,23 @@ def Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
         # print('%s%s%s'% (x2,msg,y2))
         C3 = get_hash(hash_algorithm, '%s%s%s' % (x2, msg, y2), Hexstr=1)
         # print('C3 = %s' % C3)
-        return bytes.fromhex('%s%s%s' % (C1, C3, C2))
+        if mode == 'C1C2C3':
+            return bytes.fromhex('%s%s%s' % (C1, C2, C3))
+        else:
+            return bytes.fromhex('%s%s%s' % (C1, C3, C2))
 
 
-def Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
+def Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3',
+            mode='C1C3C2'):
     """
-    解密函数，
-    :param C 密文str、bytes或者16进制字符串， C为16进制字符串时候， Hexstr为1，否则为0
-    :param DA 私钥
-    :param len_para 长度，目前只支持64
-    :param Hexstr C为16进制字符串时候， Hexstr为1，否则为0
-    :param encoding 密文C的编码方式 hash算法，标准即默认，是sm3， hashlib支持的算法这里也支持
+    decrypt function,
+    :param C ciphertext (hex string)
+    :param DA private key
+    :param len_para length, currently only supports 64
+    :param mode: ciphertext mode, 'C1C3C2' (default, same as gmssl)
+                 or 'C1C2C3'
     """
-    if hasattr(hashlib, hash_algorithm):
-        f = getattr(hashlib, hash_algorithm)()
-    elif callable(hash_algorithm):
-        f = hash_algorithm
-    else:
-        raise ValueError("hash_algorithm not found")
+    f = getattr(hashlib, hash_algorithm)()
     if isinstance(DA, str):
         pass
     elif isinstance(DA, (bytes, bytearray)):
@@ -365,9 +374,15 @@ def Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
         if isinstance(C, bytes):
             C = C.hex()
 
-    C1 = C[0:len_2]
-    C3 = C[len_2:len_3]
-    C2 = C[len_3:]
+    if mode == 'C1C2C3':
+        C1 = C[0:len_2]
+        hash_len = f.digest_size * 2
+        C3 = C[-hash_len:]
+        C2 = C[len_2:-hash_len]
+    else:
+        C1 = C[0:len_2]
+        C3 = C[len_2:len_3]
+        C2 = C[len_3:]
     xy = kG(int(DA, 16), C1, len_para)
     # print('xy = %s' % xy)
     x2 = xy[0:len_para]
@@ -390,39 +405,9 @@ KeyPair = namedtuple('KeyPair', ['publicKey', 'privateKey'])
 
 
 def generate_keypair(len_param=64):
-    """
-    生成一对密钥， 前面是公钥，后面是私钥
-    :param len_param:
-    :return:
-    """
     d = get_random_str(len_param)
     PA = kG(int(d, 16), sm2_G, len_param)
     return KeyPair(bytes.fromhex(PA), bytes.fromhex(d))
-
-
-class SM2(ECCAlgorithm):
-    name = 'sm2'
-    key_size = 64
-
-    def __init__(self, pk=None, sk=None, key=None, curve=CurveSM2):
-        if key is not None:
-            pass
-        else:
-            key = KeyPair(pk, sk)
-        super().__init__(curve, key)
-
-    def sign(self, message):
-        pass
-
-    def verify(self, message):
-        pass
-
-    def encrypt(self, message, *args, **kwargs):
-        pass
-
-    def decrypt(self, message, *args, **kwargs):
-        pass
-
 
 if __name__ == '__main__':
     print(generate_keypair(64))

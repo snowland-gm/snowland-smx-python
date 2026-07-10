@@ -1,3 +1,1 @@
 astartool>=0.0.2
-lizard
-unittest

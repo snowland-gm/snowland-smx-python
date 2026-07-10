@@ -1,14 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# @Author: 深圳星河软通科技有限公司 A.Star
 # @contact: astar@snowland.ltd
-# @site: www.astar.ltd
 # @file: _padding .py
 # @time: 2021/1/26 18:11
 # @Software: PyCharm
-
-from cryptography.hazmat.backends.openssl.ciphers import *
-
 
 def PKCS7Padding(text, block_size=16):
     """
@@ -119,8 +114,8 @@ def NoUnPadding(text, block_size=16):
     return text
 
 
-PKCS5Padding = lambda x, b: PKCS7Padding(x, 8)
-PKCS5UnPadding = lambda x, b: PKCS7UnPadding(x, 8)
+PKCS5Padding = PKCS7Padding
+PKCS5UnPadding = PKCS7UnPadding
 
 
 padding_map = {

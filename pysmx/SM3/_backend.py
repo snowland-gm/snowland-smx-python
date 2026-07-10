@@ -1,26 +1,37 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# @Author: 深圳星河软通科技有限公司 A.Star
 # @contact: astar@snowland.ltd
-# @site: www.astar.ltd
 # @file: _backend .py
 # @time: 2021/2/9 0:44
 # @Software: PyCharm
 
-
-from cryptography.hazmat.backends.interfaces import HashBackend, HMACBackend
 from cryptography import utils
 from cryptography.hazmat.primitives.hashes import HashAlgorithm, HashContext
-from cryptography.hazmat.primitives.mac import MACContext
 from cryptography.hazmat.primitives.constant_time import bytes_eq
 from cryptography.exceptions import InvalidSignature
 import hmac
 from pysmx.crypto import hashlib
 from pysmx.SM3._SM3 import SM3Type
 
+# MACContext was removed in cryptography >= 43.
+try:
+    from cryptography.hazmat.primitives.mac import MACContext
+except ImportError:
+    MACContext = None
 
-@utils.register_interface(MACContext)
-@utils.register_interface(HashContext)
+# Backend interfaces were removed in cryptography >= 43.
+_HAS_BACKEND_INTERFACES = False
+try:
+    from cryptography.hazmat.backends.interfaces import HashBackend, HMACBackend
+    _HAS_BACKEND_INTERFACES = True
+except ImportError:
+    try:
+        from cryptography.hazmat.backends import HashBackend, HMACBackend
+        _HAS_BACKEND_INTERFACES = True
+    except ImportError:
+        pass
+
+
 class SM3HMACContext(object):
     def __init__(self, backend, key, algorithm, ctx=None):
         self._algorithm = algorithm
@@ -31,7 +42,9 @@ class SM3HMACContext(object):
             self._lib = ctx._lib
         self._key = key
 
-    algorithm = utils.read_only_property("_algorithm")
+    @property
+    def algorithm(self):
+        return self._algorithm
 
     def copy(self):
         return SM3HMACContext(
@@ -52,7 +65,6 @@ class SM3HMACContext(object):
             raise InvalidSignature("Signature did not match digest.")
 
 
-@utils.register_interface(HashContext)
 class SM3HashContext(object):
     def __init__(self, backend, algorithm, ctx: "SM3Type" = None):
         self._algorithm = algorithm
@@ -62,7 +74,9 @@ class SM3HashContext(object):
         else:
             self._lib = ctx
 
-    algorithm = utils.read_only_property("_algorithm")
+    @property
+    def algorithm(self):
+        return self._algorithm
 
     def copy(self):
         return SM3HashContext(self._backend, self.algorithm, ctx=self._lib)
@@ -74,7 +88,6 @@ class SM3HashContext(object):
         return self._lib.digest()
 
 
-@utils.register_interface(HMACBackend)
 class SM3HMACBackend(object):
     name = "pysmx-hmac"
 
@@ -103,7 +116,10 @@ class SM3HMACBackend(object):
         return hasattr(hashlib, algorithm)
 
 
-@utils.register_interface(HashBackend)
+if _HAS_BACKEND_INTERFACES:
+    HMACBackend.register(SM3HMACBackend)
+
+
 class SM3HashBackend(object):
     name = "pysmx-sm3"
 
@@ -127,3 +143,12 @@ class SM3HashBackend(object):
         else:
             raise ValueError("error algorithm in pysm3")
         return hasattr(hashlib, algorithm)
+
+
+if _HAS_BACKEND_INTERFACES:
+    HashBackend.register(SM3HashBackend)
+
+if MACContext is not None:
+    MACContext.register(SM3HMACContext)
+HashContext.register(SM3HMACContext)
+HashContext.register(SM3HashContext)
