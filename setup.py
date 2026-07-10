@@ -7,13 +7,30 @@
 # @Software: PyCharm
 
 
+import re
 from setuptools import setup, find_packages
-from astartool.setuptool import load_install_requires
-import pysmx
+
+
+def load_install_requires(filename='requirements.txt'):
+    """Load install requirements from a file, skipping comments and blanks."""
+    with open(filename, 'r') as f:
+        return [line.strip() for line in f
+                if line.strip() and not line.strip().startswith('#')]
+
+
+def get_version():
+    """Extract version string from pysmx/__init__.py without importing."""
+    with open('pysmx/__init__.py', 'r') as f:
+        content = f.read()
+    match = re.search(r"__version__\s*=\s*['\"]([^'\"]+)['\"]", content)
+    if match:
+        return match.group(1)
+    raise RuntimeError("Unable to find version string")
+
 
 setup(
     name="snowland-smx",
-    version=pysmx.__version__,
+    version=get_version(),
     description=(
         'Python implementation gm algorithm'
     ),
