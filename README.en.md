@@ -1,15 +1,15 @@
 # snowland-smx
 
 [![version](https://img.shields.io/pypi/v/snowland-smx.svg)](https://pypi.python.org/pypi/snowland-smx)
-[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FASTARCHEN%2Fsnowland-smx-python.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FASTARCHEN%2Fsnowland-smx-python?ref=badge_shield)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fsnowland-gm%2Fsnowland-smx-python.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fsnowland-gm%2Fsnowland-smx-python?ref=badge_shield)
 [![gitee](https://gitee.com/snowlandltd/snowland-smx-python/badge/star.svg)](https://gitee.com/snowlandltd/snowland-smx-python/stargazers)
-[![github](https://img.shields.io/github/stars/ASTARCHEN/snowland-smx-python)](https://img.shields.io/github/stars/ASTARCHEN/snowland-smx-python)
-[![download](https://img.shields.io/pypi/dm/snowland-smx.svg?cacheSeconds=43200)](https://pypi.org/project/snowland-smx)
+[![github](https://img.shields.io/github/stars/snowland-gm/snowland-smx-python)](https://github.com/snowland-gm/snowland-smx-python)
+[![download](https://img.shields.io/pypi/dm/snowland-smx.svg?cacheSeconds=86400)](https://pypi.org/project/snowland-smx)
 [![wheels](https://img.shields.io/pypi/wheel/snowland-smx.svg)](https://pypi.python.org/pypi/snowland-smx)
 [![CodeFactor](https://www.codefactor.io/repository/github/astarchen/astartool/badge/master)](https://www.codefactor.io/repository/github/astarchen/astartool/overview/master)
 
 Python implementation of Chinese national cryptographic algorithms (GM/T):
-SM2, SM3, SM4, ZUC.
+SM2, SM3, SM4, SM9, ZUC.
 
 ## Installation
 
@@ -119,7 +119,9 @@ derived_key = KDF('abc123', 32)
 | Function / Class | Description |
 |------------------|-------------|
 | `SM3(msg=b'', encoding='utf-8')` | SM3 hash object with `update()`, `digest()`, `hexdigest()`, `copy()` |
+| `SM3Type` | SM3 hash object type (alias for `SM3`, for type checking) |
 | `hash_msg(msg) -> str` | One-shot hash, returns hex string |
+| `hexdigest(msg) -> str` | One-shot hash, returns hex string |
 | `Hash_sm3(msg, Hexstr=0) -> str` | Hash with optional hex input |
 | `digest(msg, Hexstr=0) -> bytes` | One-shot hash, returns raw bytes |
 | `KDF(Z, klen) -> str` | Key derivation, `klen` in bytes |
@@ -169,11 +171,45 @@ cipher = sm4_crypt_ecb(ENCRYPT, key, data)
 cipher = sm4_crypt_cbc(ENCRYPT, key, iv, data)
 ```
 
+### Streaming Encryption/Decryption (Large Data)
+
+`SM4Stream` provides an `update()` / `finalize()` interface for incremental
+
+processing of large data without loading everything into memory:
+
+```python
+from pysmx.SM4 import SM4Stream, ENCRYPT, DECRYPT
+
+key = b'0123456789abcdef'
+iv = b'abcdef0123456789'
+
+# Encrypt
+stream = SM4Stream(key, ENCRYPT, iv, method='cbc')
+ciphertext = b''
+with open('large_file.bin', 'rb') as f:
+    while True:
+        chunk = f.read(64 * 1024)  # 64KB per chunk
+        if not chunk:
+            break
+        ciphertext += stream.update(chunk)
+ciphertext += stream.finalize()
+
+# Decrypt
+stream = SM4Stream(key, DECRYPT, iv, method='cbc')
+plaintext = b''
+for chunk in split_into_chunks(ciphertext, 64 * 1024):
+    plaintext += stream.update(chunk)
+plaintext += stream.finalize()
+```
+
 #### API Reference
 
 | Class / Function | Description |
 |------------------|-------------|
 | `Sm4(padding_method='pkcs5')` | SM4 cipher with `set_key()`, ECB/CBC/PCBC/CFB/OFB methods |
+| `SM4` | Alias for `Sm4` |
+| `SM4Stream(key, mode, iv=None, method='ecb', padding_method='pkcs5')` | Streaming cipher: `update(data)` for incremental processing, `finalize()` to finish |
+| `SM4BlockCyphers` | Block cipher wrapper for multi-block encryption/decryption |
 | `sm4_crypt_ecb(mode, key, data) -> bytes` | Convenience: ECB mode |
 | `sm4_crypt_cbc(mode, key, iv, data) -> bytes` | Convenience: CBC mode |
 | `sm4_crypt_cfb(mode, key, iv, data) -> bytes` | Convenience: CFB mode |
@@ -181,6 +217,8 @@ cipher = sm4_crypt_cbc(ENCRYPT, key, iv, data)
 | `sm4_crypt_pcbc(mode, key, iv, data) -> bytes` | Convenience: PCBC mode |
 
 Constants: `ENCRYPT`, `DECRYPT`
+
+`SM4Stream` method parameter: `'ecb'`, `'cbc'`, `'cfb'`, `'ofb'`, `'pcbc'`.
 
 ---
 
@@ -246,68 +284,61 @@ dk = pbkdf2_hmac('sm3', b'password', b'salt', iterations=100000, dklen=32)
 
 ## SM9 - Identity-Based Cryptography
 
-SM9 is identity-based cryptography (IBC) with digital signature, encryption, and key encapsulation (KEM).
-
-### Sign & Verify
+SM9 is identity-based cryptography (GM/T 0044-2016) based on BN curve bilinear pairings. Currently experimental. API overview:
 
 ```python
 from pysmx.SM9 import (
     Sign, Verify,
-    generate_master_key, generate_user_sign_key,
-)
-
-# Generate master key
-ks, P_pub_s = generate_master_key()
-
-# Derive user signing key
-ID_A = b'alice@sm9.test'
-d_A = generate_user_sign_key(ks, ID_A, hid=1)
-
-# Sign and verify
-sig = Sign(b'hello SM9', d_A, P_pub_s, hid=1)
-assert Verify(b'hello SM9', sig, ID_A, P_pub_s, hid=1)
-```
-
-### Encrypt & Decrypt
-
-```python
-from pysmx.SM9 import (
     Encrypt, Decrypt,
-    generate_master_key, generate_user_enc_key,
+    KEM_Encapsulate, KEM_Decapsulate,
+    generate_master_key,
+    generate_user_sign_key,
+    generate_user_enc_key,
 )
+# Internal helpers for computing signing master public key
+from pysmx.SM9._SM9 import _g2_to_affine, _g2_scalar_mult, _sm9_P2
 
+# Generate master key (returns encryption master public key in G1)
 ke, P_pub_e = generate_master_key()
 
-ID_B = b'bob@sm9.test'
-d_B = generate_user_enc_key(ke, ID_B, hid=3)
+# Signing master public key must be computed from ke (G2 element)
+P2 = ((_sm9_P2[0], _sm9_P2[1]), (_sm9_P2[2], _sm9_P2[3]))
+P_pub_s = _g2_to_affine(_g2_scalar_mult(ke, P2))
 
-ciphertext = Encrypt(b'secret', ID_B, P_pub_e, hid=3)
-plaintext = Decrypt(ciphertext, d_B, ID_B, hid=3)
-```
+# hid values: 0x01 for sign, 0x02 for KEM, 0x03 for encrypt
+d_A = generate_user_sign_key(ke, b'alice', hid=0x01)
+d_B = generate_user_enc_key(ke, b'bob', hid=0x03)
 
-### Key Encapsulation (KEM)
+# Sign / Verify
+sig = Sign(b'hello', d_A, P_pub_s, hid=0x01)
+Verify(b'hello', sig, b'alice', P_pub_s, hid=0x01)
 
-```python
-from pysmx.SM9 import KEM_Encapsulate, KEM_Decapsulate
+# Encrypt / Decrypt
+ct = Encrypt(b'secret', b'bob', P_pub_e, hid=0x03)
+pt = Decrypt(ct, d_B, b'bob', hid=0x03)
 
-K_enc, C = KEM_Encapsulate(ID_B, P_pub_e, klen=32, hid=2)
-K_dec = KEM_Decapsulate(C, d_B, ID_B, klen=32, hid=2)
-assert K_enc == K_dec
+# Key Encapsulation (KEM)
+K_enc, C = KEM_Encapsulate(b'bob', P_pub_e, klen=32, hid=0x02)
+K_dec = KEM_Decapsulate(C, d_B, b'bob', klen=32, hid=0x02)
 ```
 
 #### API Reference
 
 | Function | Description |
 |----------|-------------|
-| `generate_master_key() -> (bytes, bytes)` | Generate master key pair |
-| `generate_user_sign_key(ks, ID, hid=1) -> bytes` | Derive user private signing key |
-| `generate_user_enc_key(ke, ID, hid=3) -> bytes` | Derive user private encryption key |
-| `Sign(M, d_A, P_pub_s, hid=1) -> bytes` | Sign message |
-| `Verify(M, sig, ID_A, P_pub_s, hid=1) -> bool` | Verify signature |
-| `Encrypt(M, ID_B, P_pub_e, hid=3) -> bytes` | Encrypt with identity |
-| `Decrypt(C, d_B, ID_B, hid=3) -> bytes` | Decrypt with private key |
-| `KEM_Encapsulate(ID_B, P_pub_e, klen, hid=2) -> (K, C)` | Key encapsulation |
-| `KEM_Decapsulate(C1, d_B, ID_B, klen, hid=2) -> K` | Key decapsulation |
+| `generate_master_key() -> (int, tuple)` | Generate master key pair: `(private, G1 public key)` |
+| `generate_user_sign_key(ks, ID, hid=0x01) -> tuple` | Derive user signing key (G1 element) |
+| `generate_user_enc_key(ke, ID, hid=0x03) -> tuple` | Derive user encryption key (G2 element) |
+| `Sign(M, d_A, P_pub_s, hid=0x01) -> bytes` | SM9 sign |
+| `Verify(M, sig, ID_A, P_pub_s, hid=0x01) -> bool` | SM9 verify |
+| `Encrypt(M, ID_B, P_pub_e, hid=0x03) -> bytes` | Identity-based encrypt |
+| `Decrypt(C, d_B, ID_B, hid=0x03) -> bytes` | Identity-based decrypt |
+| `KEM_Encapsulate(ID_B, P_pub_e, klen, hid=0x02) -> (K, C)` | Key encapsulation |
+| `KEM_Decapsulate(C1, d_B, ID_B, klen, hid=0x02) -> K` | Key decapsulation |
+| `sm9_hex(data) -> str` | Convert bytes/int to hex string |
+| `sm9_unhex(s) -> int` | Convert hex string to int |
+| `_g2_to_affine(p) -> tuple` | G2 Jacobian to affine coordinates |
+| `_g2_scalar_mult(k, p) -> tuple` | G2 scalar multiplication |
 
 ---
 
@@ -336,7 +367,7 @@ plaintext = envelope_open(result.encrypted_key, result.iv,
 
 | Function | Description |
 |----------|-------------|
-| `envelope_encrypt(plaintext, *, public_key, sm2_keypair, sm4_key, iv) -> EnvelopeResult` | Full digital envelope encryption |
+| `envelope_encrypt(plaintext, public_key=None, sm2_keypair=None, sm4_key=None, iv=None) -> EnvelopeResult` | Full digital envelope encryption |
 | `envelope_decrypt(encrypted_key, iv, ciphertext, private_key) -> bytes` | Full digital envelope decryption |
 | `envelope_seal(plaintext, public_key) -> EnvelopeResult` | Convenience: encrypt for receiver |
 | `envelope_open(encrypted_key, iv, ciphertext, private_key) -> bytes` | Convenience: decrypt for receiver |
@@ -348,27 +379,157 @@ plaintext = envelope_open(result.encrypted_key, result.iv,
 Block cipher padding schemes, available from `pysmx.common`.
 
 ```python
-from pysmx.common import PKCS7Padding, PKCS7UnPadding, ZeroPadding
+from pysmx.common import PKCS7Padding, PKCS7UnPadding
 
-padder = PKCS7Padding()
-padded = padder.pad(b'hello', block_size=16)
-
-unpadder = PKCS7UnPadding()
-original = unpadder.unpad(padded)
+padded = PKCS7Padding(b'hello', block_size=16)
+original = PKCS7UnPadding(padded)
 ```
 
 #### Available Schemes
 
-| Scheme | Padding / Unpadding Class |
-|--------|--------------------------|
-| PKCS5 | `PKCS5Padding`, `PKCS5UnPadding` |
-| PKCS7 | `PKCS7Padding`, `PKCS7UnPadding` |
-| Zero | `ZeroPadding`, `ZeroUnPadding` |
-| ISO10126 | `ISO10126Padding`, `ISO10126UnPadding` |
-| NoPadding | `NoPadding`, `NoUnPadding` |
+| Scheme | Padding / Unpadding Function |
+|--------|------------------------------|
+| PKCS5 | `PKCS5Padding()`, `PKCS5UnPadding()` |
+| PKCS7 | `PKCS7Padding(text, block_size=16)`, `PKCS7UnPadding(text, block_size=16)` |
+| Zero | `ZeroPadding(text, block_size=16)`, `ZeroUnPadding(text, block_size=16)` |
+| ISO10126 | `ISO10126Padding(text, block_size=16)`, `ISO10126UnPadding(text, block_size=16)` |
+| NoPadding | `NoPadding(text, block_size=16)`, `NoUnPadding(text, block_size=16)` |
+
+---
+
+## cryptography Backend Integration
+
+When the `cryptography` library is installed, SMx algorithms are registered as standard
+`cryptography` interfaces for seamless integration with TLS/SSL, X.509, etc.
+
+### SM2
+
+```python
+from pysmx.SM2 import (
+    SM2EllipticCurve, SM2EllipticCurvePublicKey,
+    SM2EllipticCurvePrivateKey,
+    SM2SM3SignatureAlgorithm, SM2SHA256SignatureAlgorithm,
+)
+
+# Generate key pair
+curve = SM2EllipticCurve()
+private_key = SM2EllipticCurvePrivateKey.generate(curve)
+public_key = private_key.public_key()
+
+# Sign & Verify
+sig = private_key.sign(b'hello', SM2SM3SignatureAlgorithm())
+public_key.verify(sig, b'hello', SM2SM3SignatureAlgorithm())
+
+# Encrypt & Decrypt
+cipher = private_key.encrypt_sm2(b'hello')
+plain = private_key.decrypt_sm2(cipher)
+```
+
+### SM3
+
+`SM3HashAlgorithm`, `SM3HashBackend`, `SM3HMACBackend` auto-register on import.
+Use with `cryptography.hazmat.primitives.hashes.Hash` and `HMAC` directly.
+
+### SM4
+
+`SM4Algorithm` is powered by the pysmx native Sm4 implementation.
+Provides a `BlockCipherAlgorithm` descriptor and convenience encrypt/decrypt
+functions for all modes.
+
+```python
+from pysmx.SM4 import (
+    SM4Algorithm, SM4ModePCBC,
+    sm4_encrypt_ecb, sm4_decrypt_ecb,
+    sm4_encrypt_cbc, sm4_decrypt_cbc,
+)
+
+key = b'0123456789abcdef'
+iv = b'abcdef0123456789'
+
+# ECB mode
+ciphertext = sm4_encrypt_ecb(key, b'Hello World!')
+plaintext = sm4_decrypt_ecb(key, ciphertext)
+
+# CBC mode
+ciphertext = sm4_encrypt_cbc(key, iv, b'Hello World!')
+plaintext = sm4_decrypt_cbc(key, iv, ciphertext)
+```
+
+**Streaming API (`SM4StreamCipher`)**
+
+```python
+from pysmx.block_cyphers import ENCRYPT, DECRYPT
+from pysmx.SM4 import SM4StreamCipher
+
+# Encrypt
+cipher = SM4StreamCipher(key, ENCRYPT, iv, mode='cbc')
+ct1 = cipher.update(data_chunk1)
+ct2 = cipher.update(data_chunk2)
+ct_final = cipher.finalize()
+
+# Decrypt
+cipher = SM4StreamCipher(key, DECRYPT, iv, mode='cbc')
+pt = cipher.update(ct_all)
+pt += cipher.finalize()
+```
+
+### SM9
+
+```python
+from pysmx.SM9 import (
+    SM9EllipticCurve, SM9EllipticCurvePublicKey,
+    SM9EllipticCurvePrivateKey, SM9SM3SignatureAlgorithm,
+)
+```
+
+### ZUC
+
+```python
+from pysmx.ZUC import ZUCAlgorithm, zuc_encrypt, zuc_decrypt
+
+key = b'0123456789abcdef'
+iv = b'fedcba9876543210'
+cipher = zuc_encrypt(key, iv, b'hello')
+plain = zuc_decrypt(key, iv, cipher)
+```
+
+#### API Reference
+
+| Module | Class / Function | Description |
+|--------|------------------|-------------|
+| SM2 | `SM2EllipticCurve` | SM2 elliptic curve descriptor |
+| SM2 | `SM2EllipticCurvePublicKey` | SM2 public key (cryptography interface) |
+| SM2 | `SM2EllipticCurvePrivateKey` | SM2 private key with `sign()` / `verify()` / `encrypt_sm2()` / `decrypt_sm2()` |
+| SM2 | `SM2SM3SignatureAlgorithm` | SM2 with SM3 signature algorithm |
+| SM2 | `SM2SHA256SignatureAlgorithm` | SM2 with SHA256 signature algorithm |
+| SM3 | `SM3HashAlgorithm` | SM3 hash algorithm descriptor |
+| SM3 | `SM3HashContext` | SM3 hash context |
+| SM3 | `SM3HMACContext` | SM3 HMAC context |
+| SM3 | `SM3HashBackend` | SM3 hash backend |
+| SM3 | `SM3HMACBackend` | SM3 HMAC backend |
+| SM4 | `SM4Algorithm` | SM4 block cipher descriptor (pysmx native Sm4 backend) |
+| SM4 | `SM4ModePCBC` | SM4 PCBC mode |
+| SM4 | `sm4_encrypt_ecb(key, data)` | SM4-ECB encryption |
+| SM4 | `sm4_decrypt_ecb(key, data)` | SM4-ECB decryption |
+| SM4 | `sm4_encrypt_cbc(key, iv, data)` | SM4-CBC encryption |
+| SM4 | `sm4_decrypt_cbc(key, iv, data)` | SM4-CBC decryption |
+| SM4 | `sm4_encrypt_cfb(key, iv, data)` | SM4-CFB encryption |
+| SM4 | `sm4_decrypt_cfb(key, iv, data)` | SM4-CFB decryption |
+| SM4 | `sm4_encrypt_ofb(key, iv, data)` | SM4-OFB encryption |
+| SM4 | `sm4_decrypt_ofb(key, iv, data)` | SM4-OFB decryption |
+| SM4 | `sm4_encrypt_pcbc(key, iv, data)` | SM4-PCBC encryption |
+| SM4 | `sm4_decrypt_pcbc(key, iv, data)` | SM4-PCBC decryption |
+| SM4 | `SM4StreamCipher(key, direction, iv, mode, padding_method)` | Streaming cipher: `update(data)` for incremental processing, `finalize()` to finish |
+| SM9 | `SM9EllipticCurve` | SM9 BN curve descriptor |
+| SM9 | `SM9EllipticCurvePublicKey` | SM9 public key (cryptography interface) |
+| SM9 | `SM9EllipticCurvePrivateKey` | SM9 private key (cryptography interface) |
+| SM9 | `SM9SM3SignatureAlgorithm` | SM9 with SM3 signature algorithm |
+| ZUC | `ZUCAlgorithm` | ZUC stream cipher algorithm descriptor |
+| ZUC | `zuc_encrypt(key, iv, data)` | ZUC encryption |
+| ZUC | `zuc_decrypt(key, iv, ciphertext)` | ZUC decryption |
 
 ---
 
 ## License
 
-[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FASTARCHEN%2Fsnowland-smx-python.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FASTARCHEN%2Fsnowland-smx-python?ref=badge_large)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fsnowland-gm%2Fsnowland-smx-python.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fsnowland-gm%2Fsnowland-smx-python?ref=badge_large)

@@ -341,6 +341,85 @@ class SM4BlockCyphers(BlockCyphers):
                  padding_method='pkcs5', unpadding_method=None)
 ```
 
+### 3.5 `SM4Stream` 类（流式加解密）
+
+提供 `update()` / `finalize()` 增量处理接口，适用于大文件/流式数据，无需一次性加载全部数据到内存。支持全部 5 种模式。
+
+```python
+class SM4Stream:
+    block_size = 16
+
+    def __init__(self, key, mode, iv=None, method='ecb',
+                 padding_method='pkcs5')
+```
+
+| 参数 | 类型 | 默认值 | 说明 |
+|-----------|------|---------|-------------|
+| `key` | `bytes` | — | 16 字节密钥 |
+| `mode` | `int` | — | `ENCRYPT` 或 `DECRYPT` |
+| `iv` | `bytes` | `None` | 16 字节 IV（ECB 模式忽略） |
+| `method` | `str` | `'ecb'` | 模式: `'ecb'`、`'cbc'`、`'cfb'`、`'ofb'`、`'pcbc'` |
+| `padding_method` | `str` | `'pkcs5'` | 填充方案: `'pkcs5'` 或 `'pkcs7'` |
+
+#### 方法:
+
+##### `update(data) -> bytes`
+
+增量输入数据，返回已处理输出的字节。可能返回空字节（不足一个完整块时）。
+
+| 参数 | 类型 | 说明 |
+|-----------|------|-------------|
+| `data` | `bytes` | 输入数据块 |
+
+##### `finalize() -> bytes`
+
+结束流处理，返回剩余输出。加密时进行填充并处理最后块；解密时去除填充。
+
+**使用示例:**
+
+```python
+from pysmx.SM4 import SM4Stream, ENCRYPT, DECRYPT
+
+key = b'0123456789abcdef'
+iv = b'abcdef0123456789'
+
+# 加密
+stream = SM4Stream(key, ENCRYPT, iv, method='cbc')
+ct = b''
+with open('large_file.bin', 'rb') as f:
+    while True:
+        chunk = f.read(64 * 1024)
+        if not chunk:
+            break
+        ct += stream.update(chunk)
+ct += stream.finalize()
+
+# 解密
+stream = SM4Stream(key, DECRYPT, iv, method='cbc')
+pt = stream.update(ct)
+pt += stream.finalize()
+```
+
+### 3.6 `SM4StreamCipher` 类（cryptography 封装层流式接口）
+
+位于 `pysmx.SM4._cryptography`，与 `SM4Stream` 功能等同，作为 cryptography 兼容层的流式 API。
+
+```python
+class SM4StreamCipher:
+    def __init__(self, key, direction, iv=None, mode='cbc',
+                 padding_method='pkcs5')
+```
+
+| 参数 | 类型 | 默认值 | 说明 |
+|-----------|------|---------|-------------|
+| `key` | `bytes` | — | 16 字节密钥 |
+| `direction` | `int` | — | `ENCRYPT` 或 `DECRYPT` |
+| `iv` | `bytes` | `None` | 16 字节 IV |
+| `mode` | `str` | `'cbc'` | 模式: `'ecb'`、`'cbc'`、`'cfb'`、`'ofb'`、`'pcbc'` |
+| `padding_method` | `str` | `'pkcs5'` | 填充方案 |
+
+方法: `update(data) -> bytes`、`finalize() -> bytes`，与 `SM4Stream` 相同。
+
 ---
 
 ## 4. ZUC - 祖冲之序列密码算法
@@ -789,6 +868,24 @@ sm4.sm4_set_key(key, ENCRYPT)
 cipher = sm4.sm4_crypt_ecb(b'Hello World!')
 sm4.sm4_set_key(key, DECRYPT)
 plain = sm4.sm4_crypt_ecb(cipher)
+```
+
+### SM4 流式加解密
+
+```python
+from pysmx.SM4 import SM4Stream, ENCRYPT, DECRYPT
+
+key = b'0123456789abcdef'
+iv = b'abcdef0123456789'
+
+# 加密
+stream = SM4Stream(key, ENCRYPT, iv, method='cbc')
+ct = stream.update(data_chunk1) + stream.update(data_chunk2)
+ct += stream.finalize()
+
+# 解密
+stream = SM4Stream(key, DECRYPT, iv, method='cbc')
+pt = stream.update(ct) + stream.finalize()
 ```
 
 ### ZUC 序列密码

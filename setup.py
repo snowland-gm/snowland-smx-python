@@ -26,7 +26,7 @@ setup(
     license='BSD License',
     packages=find_packages('pysmx'),
     platforms=["all"],
-    url='https://gitee.com/snowlandltd/snowland-smx-python',
+    url='https://github.com/snowland-gm/snowland-smx-python',
     classifiers=[
         'Development Status :: 4 - Beta',
         'Operating System :: OS Independent',

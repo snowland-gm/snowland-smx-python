@@ -341,6 +341,85 @@ class SM4BlockCyphers(BlockCyphers):
                  padding_method='pkcs5', unpadding_method=None)
 ```
 
+### 3.5 `SM4Stream` Class (Streaming Cipher)
+
+Provides `update()` / `finalize()` interface for incremental processing of large data without loading everything into memory. Supports all 5 modes.
+
+```python
+class SM4Stream:
+    block_size = 16
+
+    def __init__(self, key, mode, iv=None, method='ecb',
+                 padding_method='pkcs5')
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `key` | `bytes` | — | 16-byte key |
+| `mode` | `int` | — | `ENCRYPT` or `DECRYPT` |
+| `iv` | `bytes` | `None` | 16-byte IV (ignored for ECB) |
+| `method` | `str` | `'ecb'` | Mode: `'ecb'`, `'cbc'`, `'cfb'`, `'ofb'`, `'pcbc'` |
+| `padding_method` | `str` | `'pkcs5'` | Padding scheme: `'pkcs5'` or `'pkcs7'` |
+
+#### Methods:
+
+##### `update(data) -> bytes`
+
+Feed data incrementally. Returns processed output bytes. May return empty bytes when not enough data to form a complete block.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `data` | `bytes` | Input data chunk |
+
+##### `finalize() -> bytes`
+
+Finish stream processing and return remaining output. For encryption: pads and processes the last block(s). For decryption: removes padding.
+
+**Usage Example:**
+
+```python
+from pysmx.SM4 import SM4Stream, ENCRYPT, DECRYPT
+
+key = b'0123456789abcdef'
+iv = b'abcdef0123456789'
+
+# Encrypt
+stream = SM4Stream(key, ENCRYPT, iv, method='cbc')
+ct = b''
+with open('large_file.bin', 'rb') as f:
+    while True:
+        chunk = f.read(64 * 1024)
+        if not chunk:
+            break
+        ct += stream.update(chunk)
+ct += stream.finalize()
+
+# Decrypt
+stream = SM4Stream(key, DECRYPT, iv, method='cbc')
+pt = stream.update(ct)
+pt += stream.finalize()
+```
+
+### 3.6 `SM4StreamCipher` Class (cryptography-layer streaming API)
+
+Available from `pysmx.SM4._cryptography`. Provides the same streaming functionality as `SM4Stream` within the cryptography compatibility layer.
+
+```python
+class SM4StreamCipher:
+    def __init__(self, key, direction, iv=None, mode='cbc',
+                 padding_method='pkcs5')
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `key` | `bytes` | — | 16-byte key |
+| `direction` | `int` | — | `ENCRYPT` or `DECRYPT` |
+| `iv` | `bytes` | `None` | 16-byte IV |
+| `mode` | `str` | `'cbc'` | Mode: `'ecb'`, `'cbc'`, `'cfb'`, `'ofb'`, `'pcbc'` |
+| `padding_method` | `str` | `'pkcs5'` | Padding scheme |
+
+Methods: `update(data) -> bytes`, `finalize() -> bytes` — same as `SM4Stream`.
+
 ---
 
 ## 4. ZUC - Stream Cipher
@@ -789,6 +868,24 @@ sm4.sm4_set_key(key, ENCRYPT)
 cipher = sm4.sm4_crypt_ecb(b'Hello World!')
 sm4.sm4_set_key(key, DECRYPT)
 plain = sm4.sm4_crypt_ecb(cipher)
+```
+
+### SM4 Streaming
+
+```python
+from pysmx.SM4 import SM4Stream, ENCRYPT, DECRYPT
+
+key = b'0123456789abcdef'
+iv = b'abcdef0123456789'
+
+# Encrypt
+stream = SM4Stream(key, ENCRYPT, iv, method='cbc')
+ct = stream.update(data_chunk1) + stream.update(data_chunk2)
+ct += stream.finalize()
+
+# Decrypt
+stream = SM4Stream(key, DECRYPT, iv, method='cbc')
+pt = stream.update(ct) + stream.finalize()
 ```
 
 ### ZUC Stream Cipher
