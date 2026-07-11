@@ -11,6 +11,8 @@ SM4 GM
 """
 import copy
 from pysmx.common import padding_map, unpadding_map
+from collections import deque
+import time
 import struct
 from functools import reduce
 from pysmx.block_cyphers import ENCRYPT, DECRYPT
@@ -154,10 +156,21 @@ class Sm4(BlockCyphers):
     sm4_set_key = set_key
 
     def one_round(self, sk, in_put):
-        item = list(struct.unpack_from(">IIII", bytes(in_put)))
+        item = deque(struct.unpack_from(">IIII", bytes(in_put)), maxlen=4)
+        acc = item[1] ^ item[2] ^ item[3]
+        for ck in sk:
+            old_x0 = item[0]
+            old_x1 = item[1]
+            ka = acc ^ ck
+            a = PUT_UINT32_BE(ka)
+            b = [SboxTable[i] for i in a]
+            bb = GET_UINT32_BE(b)
+            lt = bb ^ ROTL(bb, 2) ^ ROTL(bb, 10) ^ ROTL(bb, 18) ^ ROTL(bb, 24)
+            new_x = old_x0 ^ lt
+            item.append(new_x)
+            acc = acc ^ old_x1 ^ new_x
         item.reverse()
-        res = reduce(lambda x, y: [sm4F(x[3], x[2], x[1], x[0], y), x[0], x[1], x[2]], sk, item)
-        rev = b''.join(map(lambda i: struct.pack(">I", i), res))
+        rev = b''.join(map(lambda i: struct.pack(">I", i), item))
         return rev
 
     def sm4_crypt_ecb(self, input_data):
@@ -260,8 +273,19 @@ class SM4BlockCyphers(BlockCyphers):
     sm4_set_key = set_key
 
     def one_round(self, sk, in_put):
-        item = list(struct.unpack_from(">IIII", bytes(in_put)))
+        item = deque(struct.unpack_from(">IIII", bytes(in_put)), maxlen=4)
+        acc = item[1] ^ item[2] ^ item[3]
+        for ck in sk:
+            old_x0 = item[0]
+            old_x1 = item[1]
+            ka = acc ^ ck
+            a = PUT_UINT32_BE(ka)
+            b = [SboxTable[i] for i in a]
+            bb = GET_UINT32_BE(b)
+            lt = bb ^ ROTL(bb, 2) ^ ROTL(bb, 10) ^ ROTL(bb, 18) ^ ROTL(bb, 24)
+            new_x = old_x0 ^ lt
+            item.append(new_x)
+            acc = acc ^ old_x1 ^ new_x
         item.reverse()
-        res = reduce(lambda x, y: [sm4F(x[3], x[2], x[1], x[0], y), x[0], x[1], x[2]], sk, item)
-        rev = b''.join(map(lambda i: struct.pack(">I", i), res))
+        rev = b''.join(map(lambda i: struct.pack(">I", i), item))
         return rev
