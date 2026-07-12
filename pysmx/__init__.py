@@ -16,5 +16,5 @@ from pysmx import common
 from pysmx import block_cyphers
 from pysmx import extra
 
-VERSION = (1, 0, 0, 'final', 0)
-__version__ = "1.0.0"
+VERSION = (1, 0, 0, 'post', 1)
+__version__ = "1.0.0.post1"

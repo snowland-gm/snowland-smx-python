@@ -10,8 +10,8 @@
 #
 
 import os
+import hmac
 
-from pysmx.SM3 import KDF as _sm3_KDF
 from pysmx.crypto.hashlib import new as _hash_new
 
 # ============================================================
@@ -79,11 +79,21 @@ _ALPHA = 2
 # Fp12 = Fp6[w]/(w^2 - v) → element = (a0, a1) where each is Fp6
 
 # Twist curve parameter: b_twist = 5 / u = 5 * u^(-1) in Fp2
-# u^(-1) = (0, inv(2)) because u = (0,1), u*(0,inv(2)) = (2*inv(2), 0) = (1,0)
-_INV2 = pow(2, _sm9_q - 2, _sm9_q)
-_B_TWIST_A0 = 0
-_B_TWIST_A1 = (5 * _INV2) % _sm9_q  # b' = (0, 5/2)
-_B_TWIST = (_B_TWIST_A0, _B_TWIST_A1)
+# Twist curve parameter b' (Fp2) for G2, derived from the standard SM9
+# G2 generator so that P2 lies on y^2 = x^3 + b'.
+# b' = y'^2 - x'^3 with x', y' in Fp2 = a0 + a1*u, u^2 = 2.
+_P2x0, _P2x1 = _sm9_P2[0], _sm9_P2[1]
+_P2y0, _P2y1 = _sm9_P2[2], _sm9_P2[3]
+_xp2_sq0 = (_P2x0 * _P2x0 + 2 * _P2x1 * _P2x1) % _sm9_q
+_xp2_sq1 = (2 * _P2x0 * _P2x1) % _sm9_q
+_xp2_cu0 = (_P2x0 * _xp2_sq0 + 2 * _P2x1 * _xp2_sq1) % _sm9_q
+_xp2_cu1 = (_P2x0 * _xp2_sq1 + _P2x1 * _xp2_sq0) % _sm9_q
+_yp2_sq0 = (_P2y0 * _P2y0 + 2 * _P2y1 * _P2y1) % _sm9_q
+_yp2_sq1 = (2 * _P2y0 * _P2y1) % _sm9_q
+_B_TWIST = (
+    (_yp2_sq0 - _xp2_cu0) % _sm9_q,
+    (_yp2_sq1 - _xp2_cu1) % _sm9_q,
+)
 
 # Final exponentiation exponents
 _Q6_MINUS_1 = pow(_sm9_q, 6) - 1
@@ -190,6 +200,45 @@ def _fp2_eq(a, b):
 
 
 # ============================================================
+# Square roots in Fp and Fp2  (q == 5 mod 8)
+# ============================================================
+
+def _fp_sqrt(d):
+    """Square root of d in Fp (q == 5 mod 8). Returns 0 if d == 0."""
+    d %= _sm9_q
+    if d == 0:
+        return 0
+    r = pow(d, (_sm9_q + 3) // 8, _sm9_q)
+    if (r * r) % _sm9_q == d % _sm9_q:
+        return r
+    r = (r * pow(2, (_sm9_q - 1) // 4, _sm9_q)) % _sm9_q
+    return r
+
+
+def _fp2_sqrt(a):
+    """Square root of a in Fp2 = Fp[u]/(u^2 - 2). Returns (0,0) if a == 0."""
+    a0, a1 = a
+    if a1 == 0:
+        if a0 == 0:
+            return (0, 0)
+        return (_fp_sqrt(a0), 0)
+    # (c0 + c1*u)^2 = a0 + a1*u
+    # => (c0^2 + 2 c1^2) + (2 c0 c1) u = a0 + a1 u
+    # => 2 c0 c1 = a1,  c0^2 + 2 c1^2 = a0
+    # => D = a0^2 - 2 a1^2 must be a square in Fp; c1^2 = (a0 +/- sqrt(D)) / 4
+    d = (a0 * a0 - 2 * a1 * a1) % _sm9_q
+    r = _fp_sqrt(d)
+    inv4 = pow(4, _sm9_q - 2, _sm9_q)
+    for sign in (1, -1):
+        w = ((a0 + sign * r) * inv4) % _sm9_q
+        c1 = _fp_sqrt(w)
+        if c1 != 0:
+            c0 = (a1 * pow((2 * c1) % _sm9_q, _sm9_q - 2, _sm9_q)) % _sm9_q
+            return (c0, c1)
+    raise ValueError("fp2 sqrt: not a square")
+
+
+# ============================================================
 # Fp6 Arithmetic  (a0 + a1*v + a2*v^2,  v^3 = u = (0,1))
 # ============================================================
 
@@ -282,22 +331,91 @@ _Q6_MINUS_2 = pow(_sm9_q, 6) - 2  # for Fp6 inversion via exponentiation
 
 
 def _fp6_inv(a):
-    """Fp6 inverse: a^(-1) = a^(q^6 - 2) by binary exponentiation."""
+    """Fp6 inverse via the Frobenius norm trick.
+
+    For Fp6 = Fp2[v]/(v^3 - u), the Fp2-Frobenius sigma = x -> x^(q^2) has
+    order 3. The norm N(a) = a * sigma(a) * sigma^2(a) lies in Fp2, so
+    a^(-1) = sigma(a)*sigma^2(a) * N(a)^(-1).
+    """
     if _fp6_is_zero(a):
         raise ZeroDivisionError("Cannot invert zero Fp6 element")
-    result = _FP6_ONE
-    base = a
-    e = _Q6_MINUS_2
-    while e > 0:
-        if e & 1:
-            result = _fp6_mul(result, base)
-        base = _fp6_sqr(base)
-        e >>= 1
-    return result
+    a_p = _fp6_frobenius2(a)        # a^(q^2)
+    a_p2 = _fp6_frobenius2(a_p)     # a^(q^4)
+    t = _fp6_mul(a_p, a_p2)         # a^(q^2 + q^4)
+    norm = _fp6_mul(a, t)           # a^(1 + q^2 + q^4) in Fp2
+    inv_norm = _fp2_inv(norm[0])
+    return _fp6_mul_fp2(t, inv_norm)
 
 
 def _fp6_is_zero(a):
     return _fp2_is_zero(a[0]) and _fp2_is_zero(a[1]) and _fp2_is_zero(a[2])
+
+
+def _fp6_pow(a, exp):
+    """Binary exponentiation in Fp6."""
+    if exp == 0:
+        return _FP6_ONE
+    if exp == 1:
+        return a
+    res = _FP6_ONE
+    base = a
+    e = exp
+    while e > 0:
+        if e & 1:
+            res = _fp6_mul(res, base)
+        base = _fp6_sqr(base)
+        e >>= 1
+    return res
+
+
+def _fp6_cbrt(a):
+    """Cube root of a in Fp6, assuming a is a cube (a^((q^6 - 1)/3) == 1).
+
+    Uses the Adleman-Manders-Miller style reduction: pick a non-cube g,
+    let b = g^t be a primitive 3^s-th root of unity (q^6 - 1 = 3^s * t),
+    then x = a^e0 with 3*e0 == 1 (mod t) satisfies x^3 = a * delta where
+    delta is in <b>; recover the residual via discrete log over <b>.
+    """
+    n = pow(_sm9_q, 6) - 1
+    s = 0
+    tt = n
+    while tt % 3 == 0:
+        s += 1
+        tt //= 3
+    t = tt  # 3 does not divide t
+    # find a non-cube g. NOTE: every element of the form (a0, 0, 0) with
+    # a0 in Fp2 is a cube in Fp6, so we must step along the v (or v^2)
+    # basis, NOT along Fp2 scalars. Use a bounded search to be safe.
+    v = (_FP2_ZERO, _FP2_ONE, _FP2_ZERO)    # basis element v
+    v2 = (_FP2_ZERO, _FP2_ZERO, _FP2_ONE)  # basis element v^2
+    g = None
+    for basis in (v, v2):
+        g = _FP6_ONE
+        for _ in range(256):
+            g = _fp6_add(g, basis)
+            if not _fp6_eq(_fp6_pow(g, n // 3), _FP6_ONE):
+                break
+        else:
+            continue
+        break
+    if g is None or _fp6_eq(_fp6_pow(g, n // 3), _FP6_ONE):
+        raise ValueError("fp6 cbrt: could not find a non-cube generator")
+    b = _fp6_pow(g, t)  # primitive 3^s-th root of unity
+    e0 = pow(3, -1, t)
+    R = _fp6_pow(a, e0)
+    delta = _fp6_mul(a, _fp6_inv(_fp6_pow(R, 3)))  # in <b>
+    # discrete log: find j in [0, 3^s) with b^j == delta
+    j = 0
+    cur = _FP6_ONE
+    for i in range(3 ** s):
+        if _fp6_eq(cur, delta):
+            j = i
+            break
+        cur = _fp6_mul(cur, b)
+    if j % 3 != 0:
+        raise ValueError("fp6 cbrt: residual is not a cube")
+    m = (-(j // 3)) % (3 ** (s - 1))
+    return _fp6_mul(R, _fp6_pow(b, m))
 
 
 def _fp6_frobenius(a):
@@ -504,42 +622,36 @@ def _g1_add(T, P_aff):
     HH = (H * H) % _sm9_q
     # HHH = H * HH
     HHH = (H * HH) % _sm9_q
-    # r = 2*(S2 - Y1)
-    r = (2 * (S2 - Y1)) % _sm9_q
+    # r = S2 - Y1   (Jacobian affine addition, a=0; NOT the doubling factor)
+    r = (S2 - Y1) % _sm9_q
     # V = X1 * HH
     V = (X1 * HH) % _sm9_q
     # X3 = r^2 - HHH - 2*V
     X3 = (r * r - HHH - 2 * V) % _sm9_q
     # Y3 = r*(V - X3) - Y1*HHH
     Y3 = (r * (V - X3) - Y1 * HHH) % _sm9_q
-    # Z3 = (Z1 + H)^2 - Z1Z1 - HH
-    Z3 = ((Z1 + H) ** 2 - Z1Z1 - HH) % _sm9_q
+    # Z3 = Z1 * H
+    Z3 = (Z1 * H) % _sm9_q
 
     return (X3, Y3, Z3)
 
 
 def _g1_scalar_mult(k, P_aff):
-    """Scalar multiplication k*P for G1, k>0, P in affine."""
+    """Scalar multiplication k*P for G1, k>0, P in affine (MSB-first, no list)."""
     if k == 0:
         return (0, 0, 0)
 
-    bits = []
-    e = k
-    while e > 0:
-        bits.append(e & 1)
-        e >>= 1
-    bits.reverse()
-
     X, Y, Z = 0, 0, 0
+    got = False
     x_p, y_p = P_aff
 
-    for bit in bits:
-        if Z != 0:
+    for i in range(k.bit_length() - 1, -1, -1):
+        if got:
             X, Y, Z = _g1_double((X, Y, Z))
-
-        if bit:
-            if Z == 0:
+        if (k >> i) & 1:
+            if not got:
                 X, Y, Z = x_p, y_p, 1
+                got = True
             else:
                 X, Y, Z = _g1_add((X, Y, Z), P_aff)
 
@@ -616,14 +728,13 @@ def _g2_add(T, P_aff):
     HH = _fp2_sqr(H)
     HHH = _fp2_mul(H, HH)
 
-    r = _fp2_mul_fp(_fp2_sub(S2, Y1), 2)
+    r = _fp2_sub(S2, Y1)
     V = _fp2_mul(X1, HH)
 
     X3 = _fp2_sub(_fp2_sub(_fp2_sqr(r), HHH), _fp2_mul_fp(V, 2))
     Y3 = _fp2_sub(_fp2_mul(r, _fp2_sub(V, X3)), _fp2_mul(Y1, HHH))
 
-    Z1_H = _fp2_add(Z1, H)
-    Z3 = _fp2_sub(_fp2_sub(_fp2_sqr(Z1_H), Z1Z1), HH)
+    Z3 = _fp2_mul(Z1, H)
 
     return (X3, Y3, Z3)
 
@@ -640,27 +751,21 @@ def _g2_to_affine(T):
 
 
 def _g2_scalar_mult(k, P_aff):
-    """Scalar multiplication k*P for G2. k>=0, P in affine."""
+    """Scalar multiplication k*P for G2. k>=0, P in affine (MSB-first, no list)."""
     if k == 0:
         return (_FP2_ZERO, _FP2_ZERO, _FP2_ZERO)
 
-    bits = []
-    e = k
-    while e > 0:
-        bits.append(e & 1)
-        e >>= 1
-    bits.reverse()
-
     X, Y, Z = _FP2_ZERO, _FP2_ZERO, _FP2_ZERO
+    got = False
     x_p, y_p = P_aff
 
-    for bit in bits:
-        if not _fp2_is_zero(Z):
+    for i in range(k.bit_length() - 1, -1, -1):
+        if got:
             X, Y, Z = _g2_double((X, Y, Z))
-
-        if bit:
-            if _fp2_is_zero(Z):
+        if (k >> i) & 1:
+            if not got:
                 X, Y, Z = x_p, y_p, _FP2_ONE
+                got = True
             else:
                 X, Y, Z = _g2_add((X, Y, Z), P_aff)
 
@@ -836,66 +941,212 @@ def _sparse_fp12_mul(a, sparse):
 
 
 # ============================================================
-# Miller Loop and Ate Pairing
+# Reduced Tate Pairing (correct, bilinear) on the SM9 BN curve
 # ============================================================
+#
+# The previous optimal-Ate implementation omitted the Frobenius
+# correction steps required for the BN curve, so it was not bilinear.
+# We now implement the (reduced) Tate pairing on E(Fp^12), which is
+# mathematically guaranteed to be bilinear:
+#
+#   e(P, Q) = f_r(psi(Q))(P) ^ ((q^12 - 1) / N)
+#
+# where psi is the inverse sextic twist E' -> E mapping the G2 point Q
+# (on the twisted curve, Fp^2) to a point on the base curve E over Fp^12.
+# psi(x', y') = (v * x', v*w * y')  (v = Fp6 gen, w = Fp12 gen).
+#
+# The previous (broken) code used psi(x', y') = (v*x', v*w*y') directly, which
+# is only valid when the G2 twist is y^2 = x^3 + b/u. The actual SM9 G2 curve
+# is y^2 = x^3 + b' (with b' computed above from the generator), so a proper
+# twist embedding is required:
+#   psi(x', y') = (alpha * x', beta * y')
+# with alpha^3 = beta^2 = b / b'.  Then psi(Q) lies on the base curve
+# y^2 = x^3 + b over Fp12 and the reduced Tate pairing becomes bilinear.
 
-# Miller loop parameter: s = t - 1
-_MILLER_S = _sm9_t - 1
+# xi = b / b'  (Fp2)
+_SM9_XI = _fp2_mul((_sm9_b, 0), _fp2_inv(_B_TWIST))
+# beta^2 = xi  (in Fp2, since xi is a square in Fp2 for the SM9 twist)
+_SM9_BETA = _fp2_sqrt(_SM9_XI)
+# alpha^3 = xi  (in Fp6, since xi is a cube in Fp6 for the sextic twist)
+_SM9_ALPHA = _fp6_cbrt((_SM9_XI, _FP2_ZERO, _FP2_ZERO))
+
+_G12_INF = (_FP12_ZERO, _FP12_ZERO, _FP12_ZERO)
+
+
+def _fp12_is_zero(a):
+    return _fp6_is_zero(a[0]) and _fp6_is_zero(a[1])
+
+
+def _fp12_eq(a, b):
+    return _fp6_eq(a[0], b[0]) and _fp6_eq(a[1], b[1])
+
+
+def _fp12_mul_fp2(a, b):
+    """Multiply an Fp12 element by an Fp2 scalar."""
+    return (_fp6_mul_fp2(a[0], b), _fp6_mul_fp2(a[1], b))
+
+
+def _fp6_mul_int(a, k):
+    """Multiply an Fp6 element by an integer (Fp element)."""
+    k = k % _sm9_q
+    return (_fp2_mul_fp(a[0], k), _fp2_mul_fp(a[1], k), _fp2_mul_fp(a[2], k))
+
+
+def _fp12_mul_int(a, k):
+    """Multiply an Fp12 element by an integer (Fp element)."""
+    k = k % _sm9_q
+    return (_fp6_mul_int(a[0], k), _fp6_mul_int(a[1], k))
+
+
+def _fp12_from_fp(a):
+    """Embed an element of Fp into Fp12 (real part, v^0 coefficient)."""
+    a = a % _sm9_q
+    return (((a, 0), _FP2_ZERO, _FP2_ZERO), _FP6_ZERO)
+
+
+def _g12_double(T):
+    """Double a Jacobian point on E (y^2 = x^3 + 5) over Fp12."""
+    X, Y, Z = T
+    if _fp12_is_zero(Z):
+        return T  # point at infinity
+    T1 = _fp12_sqr(Y)
+    T2 = _fp12_mul_int(_fp12_mul(X, T1), 4)   # 4*X*Y^2
+    T3 = _fp12_mul_int(_fp12_sqr(T1), 8)      # 8*Y^4
+    T4 = _fp12_mul_int(_fp12_sqr(X), 3)       # 3*X^2 (a = 0)
+    X3 = _fp12_sub(_fp12_sqr(T4), _fp12_mul_int(T2, 2))
+    Y3 = _fp12_sub(_fp12_mul(T4, _fp12_sub(T2, X3)), T3)
+    Z3 = _fp12_mul_int(_fp12_mul(Y, Z), 2)
+    return (X3, Y3, Z3)
+
+
+def _g12_add(T, P_aff):
+    """Add a Jacobian point T and an affine point P_aff on E over Fp12."""
+    X1, Y1, Z1 = T
+    x2, y2 = P_aff
+    if _fp12_is_zero(Z1):
+        return (x2, y2, _FP12_ONE)
+    Z1Z1 = _fp12_sqr(Z1)
+    U2 = _fp12_mul(x2, Z1Z1)
+    S2 = _fp12_mul(_fp12_mul(y2, Z1), Z1Z1)
+    H = _fp12_sub(U2, X1)
+    if _fp12_is_zero(H):
+        if _fp12_eq(S2, Y1):
+            return _g12_double((x2, y2, _FP12_ONE))
+        else:
+            return _G12_INF
+    HH = _fp12_sqr(H)
+    HHH = _fp12_mul(H, HH)
+    r = _fp12_mul_int(_fp12_sub(S2, Y1), 2)
+    V = _fp12_mul(X1, HH)
+    X3 = _fp12_sub(_fp12_sub(_fp12_sqr(r), HHH), _fp12_mul_int(V, 2))
+    Y3 = _fp12_sub(_fp12_mul(r, _fp12_sub(V, X3)), _fp12_mul(Y1, HHH))
+    Z1_H = _fp12_add(Z1, H)
+    Z3 = _fp12_sub(_fp12_sub(_fp12_sqr(Z1_H), Z1Z1), HH)
+    return (X3, Y3, Z3)
+
+
+def _g12_to_affine(T):
+    """Convert a Jacobian G2 point (over Fp12) to affine."""
+    X, Y, Z = T
+    if _fp12_is_zero(Z):
+        return _G12_INF
+    Z_inv = _fp12_inv(Z)
+    Z_inv2 = _fp12_sqr(Z_inv)
+    Z_inv3 = _fp12_mul(Z_inv2, Z_inv)
+    return (_fp12_mul(X, Z_inv2), _fp12_mul(Y, Z_inv3))
+
+
+def _miller_line_eval(T, R_aff, P_aff):
+    """Line on E over Fp12 through T (Jacobian) and R_aff (affine, or None for
+    the tangent at T), evaluated at P_aff (affine on E, base field).
+
+    Returns the Fp12 value:  lam*P.x - P.y - (lam*T.x - T.y)
+    with lam = (yR - yT)/(xR - xT)  (tangent when R_aff is None).
+    """
+    X, Y, Z = T
+    if _fp12_is_zero(Z):
+        return _FP12_ONE
+
+    # Affine coordinates of T
+    Z_inv = _fp12_inv(Z)
+    Z_inv2 = _fp12_sqr(Z_inv)
+    Z_inv3 = _fp12_mul(Z_inv2, Z_inv)
+    xT = _fp12_mul(X, Z_inv2)
+    yT = _fp12_mul(Y, Z_inv3)
+
+    if R_aff is None:
+        # tangent: lam = 3*xT^2 / (2*yT)
+        num = _fp12_mul_int(_fp12_sqr(xT), 3)
+        den = _fp12_mul_int(yT, 2)
+    else:
+        xR, yR = R_aff
+        num = _fp12_sub(yR, yT)
+        den = _fp12_sub(xR, xT)
+    lam = _fp12_mul(num, _fp12_inv(den))
+
+    px = _fp12_from_fp(P_aff[0])
+    py = _fp12_from_fp(P_aff[1])
+
+    term1 = _fp12_mul(lam, px)
+    term3 = _fp12_sub(_fp12_mul(lam, xT), yT)
+    line = _fp12_sub(_fp12_sub(term1, py), term3)
+    return line
 
 
 def _ate_pairing(P_aff, Q_aff):
-    """Ate pairing e(P, Q).
+    """SM9 pairing e(P, Q).
+
     P: G1 point (affine, on base field E/Fp)
     Q: G2 point (affine, on twisted curve E'/Fp^2)
-    Returns Fp12 element.
+    Returns Fp12 element. Implemented as the reduced Tate pairing on
+    E(Fp^12):  e(P, Q) = f_r(psi(Q))(P) ^ ((q^12 - 1) / N).
     """
-    f = _FP12_ONE
-
-    # If P is infinity (0,0)
+    # Identity handling
     if P_aff[0] == 0 and P_aff[1] == 0:
         return _FP12_ONE
-
-    # If Q is infinity
     xq, yq = Q_aff
     if _fp2_is_zero(xq) and _fp2_is_zero(yq):
         return _FP12_ONE
 
-    T = (xq, yq, _FP2_ONE)  # Q in Jacobian
+    # psi(Q) = (alpha * Q.x, beta * Q.y) on E (Fp12)
+    # with alpha^3 = beta^2 = b / b'.  This maps the G2 point (on the twist
+    # y^2 = x^3 + b' over Fp2) onto the base curve y^2 = x^3 + b over Fp12.
+    Q_hat_x = _fp6_mul(_SM9_ALPHA, (xq, _FP2_ZERO, _FP2_ZERO))  # Fp6
+    Q_hat_y_fp2 = _fp2_mul(_SM9_BETA, yq)                         # Fp2
+    Q_hat_x_fp12 = (Q_hat_x, _FP6_ZERO)                          # x-coord
+    Q_hat_y_fp12 = ((Q_hat_y_fp2, _FP2_ZERO, _FP2_ZERO), _FP6_ZERO)  # y-coord
+    Q_hat = (Q_hat_x_fp12, Q_hat_y_fp12)   # affine point on E(Fp12)
 
-    s = _MILLER_S
-    neg = False
-    if s < 0:
-        s = -s
-        neg = True
+    # P lifted to E(Fp12)
+    P_hat_x = _fp12_from_fp(P_aff[0])
+    P_hat_y = _fp12_from_fp(P_aff[1])
+    P_hat = (P_hat_x, P_hat_y)
 
+    # Miller loop over the binary expansion of r = N
+    f = _FP12_ONE
+    T = (Q_hat_x_fp12, Q_hat_y_fp12, _FP12_ONE)  # Jacobian, Z = 1
+    m = _sm9_N
     bits = []
-    e = s
+    e = m
     while e > 0:
         bits.append(e & 1)
         e >>= 1
     bits.reverse()
 
-    # Standard Miller loop: for i from len(bits)-2 down to 0
-    # f = f^2 * l_{T,T}(P); T = 2T
-    # if bit[i]: f = f * l_{T,Q}(P); T = T + Q
     for i in range(1, len(bits)):
-        f = _fp12_sqr(f)
-        line = _line_double_eval(T, P_aff)
-        f = _sparse_fp12_mul(f, line)
-        T = _g2_double(T)
+        # Doubling step: line is tangent at current T
+        line = _miller_line_eval(T, None, P_aff)
+        T = _g12_double(T)
+        f = _fp12_mul(_fp12_sqr(f), line)
 
         if bits[i]:
-            line = _line_add_eval(T, Q_aff, P_aff)
-            f = _sparse_fp12_mul(f, line)
-            T = _g2_add(T, Q_aff)
+            # Addition step: line through T and Q_hat
+            line = _miller_line_eval(T, Q_hat, P_aff)
+            T = _g12_add(T, Q_hat)
+            f = _fp12_mul(f, line)
 
-    # Final exponentiation
-    f = _fp12_final_exp(f)
-
-    if neg:
-        f = _fp12_inv(f)
-
-    return f
+    # Reduced Tate pairing final exponentiation
+    return _fp12_final_exp(f)
 
 
 def _fp12_final_exp(f):
@@ -1076,12 +1327,15 @@ def _fp2_pow(a, exp):
 
 def _sm9_KDF(Z, klen):
     """SM9 KDF: Derive key material of klen bytes from Z.
-    Z: bytes
+    Z: bytes (or hex str)
     klen: int, key length in bytes
     Returns: bytes (length klen)
     """
     from pysmx.SM3._SM3 import _BKDF
-    if isinstance(Z, bytes):
+    # Pass Z as a hex string so _BKDF works with both the bytes-aware and
+    # the string-only variants of hex2byte (keeps SM9 independent of the
+    # SM3 helper implementation).
+    if isinstance(Z, (bytes, bytearray)):
         Z = Z.hex()
     return _BKDF(Z, klen)
 
@@ -1331,8 +1585,10 @@ def Encrypt(M, ID_B, P_pub_e, hid=0x03):
         # r in [1, N-1]
         r = _rand_int_n()
 
-        # Q_B = H1(ID_B || hid, N)
+        # Q_B = H1(ID_B || hid, N) * P1 + P_pub_e   (standard SM9, GB/T 38635)
         Q_B = _H1(ID_B, _sm9_N, hid)
+        Q_B_jac = _g1_add((Q_B[0], Q_B[1], 1), P_pub_e)
+        Q_B = _g1_to_affine(Q_B_jac)
 
         # C1 = [r] * Q_B
         C1_jac = _g1_scalar_mult(r, Q_B)
@@ -1356,16 +1612,15 @@ def Encrypt(M, ID_B, P_pub_e, hid=0x03):
         K1 = K[:mlen]
         K2 = K[mlen:mlen + mac_len]
 
-        # Check K1 is not all-zero
-        if K1 == b'\x00' * mlen:
+        # Check K1 is not all-zero (skip guard when mlen==0)
+        if mlen > 0 and K1 == b'\x00' * mlen:
             continue
 
         # C2 = M XOR K1
         C2 = bytes(a ^ b for a, b in zip(M, K1))
 
         # C3 = MAC(K2, C2) using SM3-based HMAC
-        import hmac as _hmac_module
-        C3 = _hmac_module.new(K2, C2, 'sm3').digest()
+        C3 = hmac.new(K2, C2, 'sm3').digest()
 
         ciphertext = C1_bytes + C3 + C2
         return ciphertext
@@ -1379,8 +1634,6 @@ def Decrypt(C, d_B, ID_B, hid=0x03):
     hid: 0x03 for encryption
     Returns: plaintext (bytes) or None on failure
     """
-    import hmac as _hmac_module
-
     if isinstance(ID_B, str):
         ID_B = ID_B.encode('utf-8')
 
@@ -1418,8 +1671,8 @@ def Decrypt(C, d_B, ID_B, hid=0x03):
     # M' = C2 XOR K1
     M_prime = bytes(a ^ b for a, b in zip(C2, K1))
 
-    # u = MAC(K2, M')
-    u = _hmac_module.new(K2, M_prime, 'sm3').digest()
+    # u = MAC(K2, C2)   (must MAC the ciphertext, consistent with Encrypt)
+    u = hmac.new(K2, C2, 'sm3').digest()
 
     if u != C3:
         return None
@@ -1447,6 +1700,8 @@ def KEM_Encapsulate(ID_B, P_pub_e, klen, hid=0x02):
     while True:
         r = _rand_int_n()
         Q_B = _H1(ID_B, _sm9_N, hid)
+        Q_B_jac = _g1_add((Q_B[0], Q_B[1], 1), P_pub_e)
+        Q_B = _g1_to_affine(Q_B_jac)
         C1_jac = _g1_scalar_mult(r, Q_B)
         C1 = _g1_to_affine(C1_jac)
 

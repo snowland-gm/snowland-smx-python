@@ -2,7 +2,7 @@
 
 ## Overview
 
-`snowland-smx` (version 1.0.0) is a pure Python implementation of Chinese national cryptographic algorithms (GM/T standards), including SM2, SM3, SM4, SM9, and ZUC.
+`snowland-smx` (version 1.0.0.post1) is a pure Python implementation of Chinese national cryptographic algorithms (GM/T standards), including SM2, SM3, SM4, SM9, and ZUC.
 
 Package name: `pysmx`
 
@@ -817,8 +817,8 @@ h = sm3(b'hello')
 ```python
 from pysmx import VERSION, __version__
 
-print(__version__)  # "1.0.0"
-print(VERSION)      # (1, 0, 0, 'final', 0)
+print(__version__)  # "1.0.0.post1"
+print(VERSION)      # (1, 0, 0, 'post', 1)
 ```
 
 ---

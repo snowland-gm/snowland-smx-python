@@ -2,7 +2,7 @@
 
 ## 概述
 
-`snowland-smx` (版本 1.0.0) 是国密算法（GM/T 标准）的纯 Python 实现，包含 SM2、SM3、SM4、SM9 和 ZUC 算法。
+`snowland-smx` (版本 1.0.0.post1) 是国密算法（GM/T 标准）的纯 Python 实现，包含 SM2、SM3、SM4、SM9 和 ZUC 算法。
 
 包名: `pysmx`
 
@@ -817,8 +817,8 @@ h = sm3(b'hello')
 ```python
 from pysmx import VERSION, __version__
 
-print(__version__)  # "1.0.0"
-print(VERSION)      # (1, 0, 0, 'final', 0)
+print(__version__)  # "1.0.0.post1"
+print(VERSION)      # (1, 0, 0, 'post', 1)
 ```
 
 ---
