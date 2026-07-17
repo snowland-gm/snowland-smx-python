@@ -6,6 +6,7 @@
 # @Software: PyCharm
 
 from typing import Iterable
+from collections import deque
 
 S0 = [
     0x3E, 0x72, 0x5B, 0x47, 0xCA, 0xE0, 0x00, 0x33, 0x04, 0xD1, 0x54, 0x98, 0x09, 0xB9, 0x6D, 0xCB,
@@ -83,7 +84,7 @@ def make_uint31(a, b, c):
 class ZUC(Iterable):
     def __init__(self, key, iv, buffer_size=100):
         self.r = [0, 0]
-        self.lfsr = [0] * 16
+        self.lfsr = deque([0] * 16, maxlen=16)
         self.x = [0, 0, 0, 0]
         self.zuc_init(key, iv)
         if buffer_size <= 0:
@@ -113,8 +114,6 @@ class ZUC(Iterable):
 
     def lfsr_append(self, f):
         self.lfsr.append(f)
-        if len(self.lfsr) > 16:
-            self.lfsr.pop(0)
 
     def lfsr_init(self, u):
         self.lfsr_append(addition_uint31(self.lfsr_next(), u))
@@ -136,7 +135,7 @@ class ZUC(Iterable):
 
     def zuc_init(self, key, iv):
         # Expand key.
-        self.lfsr = [make_uint31(key[i], D[i], iv[i]) for i in range(16)]
+        self.lfsr = deque([make_uint31(key[i], D[i], iv[i]) for i in range(16)], maxlen=16)
         self.r = [0, 0]
         for i in range(32):
             self.bit_reorganization()

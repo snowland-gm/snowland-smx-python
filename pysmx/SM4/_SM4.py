@@ -11,7 +11,6 @@ SM4 GM
 """
 import copy
 from pysmx.common import padding_map, unpadding_map
-from collections import deque
 import time
 import struct
 from functools import reduce
@@ -79,6 +78,36 @@ def XOR_BYTES(a, b):
     return bytes(map(lambda x, y: x ^ y, a, b))
 
 
+def _build_sm4_tables():
+    # 4 张 256 项 32 位表，利用 L 变换的线性性预展开 T 变换
+    tables = [[0] * 256 for _ in range(4)]
+    shifts = (24, 16, 8, 0)
+    for p in range(4):
+        s = shifts[p]
+        for v in range(256):
+            w = SboxTable[v] << s
+            tables[p][v] = (w ^ ROTL(w, 2) ^ ROTL(w, 10) ^ ROTL(w, 18) ^ ROTL(w, 24)) & 0xFFFFFFFF
+    return tables
+
+
+T0, T1, T2, T3 = _build_sm4_tables()
+
+
+def _build_sm4_rk_tables():
+    # 轮密钥扩展使用的 L' 变换表
+    tables = [[0] * 256 for _ in range(4)]
+    shifts = (24, 16, 8, 0)
+    for p in range(4):
+        s = shifts[p]
+        for v in range(256):
+            w = SboxTable[v] << s
+            tables[p][v] = (w ^ ROTL(w, 13) ^ ROTL(w, 23)) & 0xFFFFFFFF
+    return tables
+
+
+RK0, RK1, RK2, RK3 = _build_sm4_rk_tables()
+
+
 def sm4Sbox(idx):
     """
     look up in SboxTable and get the related value.
@@ -94,11 +123,8 @@ def sm4CalciRK(ka):
     args:    [in] a: a is a 32 bits unsigned value;
     return: sk[i]: i{0,1,2,3,...31}.
     """
-    a = PUT_UINT32_BE(ka)
-    b = [sm4Sbox(i) for i in a]
-    bb = GET_UINT32_BE(b)
-    rk = bb ^ (ROTL(bb, 13)) ^ (ROTL(bb, 23))
-    return rk
+    return (RK0[(ka >> 24) & 0xff] ^ RK1[(ka >> 16) & 0xff] ^
+            RK2[(ka >> 8) & 0xff] ^ RK3[ka & 0xff])
 
 
 def sm4Lt(ka):
@@ -156,22 +182,16 @@ class Sm4(BlockCyphers):
     sm4_set_key = set_key
 
     def one_round(self, sk, in_put):
-        item = deque(struct.unpack_from(">IIII", bytes(in_put)), maxlen=4)
-        acc = item[1] ^ item[2] ^ item[3]
+        x0, x1, x2, x3 = struct.unpack_from(">IIII", bytes(in_put))
+        acc = x1 ^ x2 ^ x3
         for ck in sk:
-            old_x0 = item[0]
-            old_x1 = item[1]
             ka = acc ^ ck
-            a = PUT_UINT32_BE(ka)
-            b = [SboxTable[i] for i in a]
-            bb = GET_UINT32_BE(b)
-            lt = bb ^ ROTL(bb, 2) ^ ROTL(bb, 10) ^ ROTL(bb, 18) ^ ROTL(bb, 24)
-            new_x = old_x0 ^ lt
-            item.append(new_x)
-            acc = acc ^ old_x1 ^ new_x
-        item.reverse()
-        rev = b''.join(map(lambda i: struct.pack(">I", i), item))
-        return rev
+            tb = ka.to_bytes(4, 'big')
+            lt = T0[tb[0]] ^ T1[tb[1]] ^ T2[tb[2]] ^ T3[tb[3]]
+            new = x0 ^ lt
+            x0, x1, x2, x3 = x1, x2, x3, new
+            acc = x1 ^ x2 ^ x3
+        return struct.pack(">IIII", x3, x2, x1, x0)
 
     def sm4_crypt_ecb(self, input_data):
         return self.crypt_ecb(input_data)
@@ -273,19 +293,13 @@ class SM4BlockCyphers(BlockCyphers):
     sm4_set_key = set_key
 
     def one_round(self, sk, in_put):
-        item = deque(struct.unpack_from(">IIII", bytes(in_put)), maxlen=4)
-        acc = item[1] ^ item[2] ^ item[3]
+        x0, x1, x2, x3 = struct.unpack_from(">IIII", bytes(in_put))
+        acc = x1 ^ x2 ^ x3
         for ck in sk:
-            old_x0 = item[0]
-            old_x1 = item[1]
             ka = acc ^ ck
-            a = PUT_UINT32_BE(ka)
-            b = [SboxTable[i] for i in a]
-            bb = GET_UINT32_BE(b)
-            lt = bb ^ ROTL(bb, 2) ^ ROTL(bb, 10) ^ ROTL(bb, 18) ^ ROTL(bb, 24)
-            new_x = old_x0 ^ lt
-            item.append(new_x)
-            acc = acc ^ old_x1 ^ new_x
-        item.reverse()
-        rev = b''.join(map(lambda i: struct.pack(">I", i), item))
-        return rev
+            tb = ka.to_bytes(4, 'big')
+            lt = T0[tb[0]] ^ T1[tb[1]] ^ T2[tb[2]] ^ T3[tb[3]]
+            new = x0 ^ lt
+            x0, x1, x2, x3 = x1, x2, x3, new
+            acc = x1 ^ x2 ^ x3
+        return struct.pack(">IIII", x3, x2, x1, x0)

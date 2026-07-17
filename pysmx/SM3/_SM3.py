@@ -10,14 +10,16 @@ from pysmx.common import (
 )
 from math import ceil
 from functools import reduce
-from copy import deepcopy, copy
+from copy import copy
 import struct
 import hashlib
 
+def _rotl(x, k):
+    return ((x << k) | (x >> (32 - k))) & 0xFFFFFFFF
+
+
 def rotate_left(a, k):
-    k %= 32
-    high, low = divmod(a, BIT_EACH_32[32 - k])
-    return high + low * BIT_EACH_32[k]
+    return _rotl(a, k % 32)
 
 
 T_j = [0x79cc4519] * 16 + [0x7a879d8a] * 48
@@ -35,148 +37,39 @@ def GG_j(X, Y, Z, j):
 
 
 def P_0(X):
-    high, low = divmod(X, BIT_EACH_32[23])
-    r_l_9 = high + low * BIT_EACH_32[9]
-    high, low = divmod(X, BIT_EACH_32[15])
-    r_l_17 = high + low * BIT_EACH_32[17]
-    # return X ^ (rotate_left(X, 9)) ^ (rotate_left(X, 17))
-    return X ^ r_l_9 ^ r_l_17
+    return X ^ _rotl(X, 9) ^ _rotl(X, 17)
 
 
 def P_1(X):
-    high, low = divmod(X, BIT_EACH_32[17])
-    r_l_15 = high + low * BIT_EACH_32[15]
-    high, low = divmod(X, BIT_EACH_32[9])
-    r_l_23 = high + low * BIT_EACH_32[23]
-    return X ^ r_l_15 ^ r_l_23
+    return X ^ _rotl(X, 15) ^ _rotl(X, 23)
 
 
 def PUT_UINT32_BE(n):
     return [int((n >> 24) & 0xff), int((n >> 16) & 0xff), int((n >> 8) & 0xff), int(n & 0xff)]
 
 
-def __cf_reduce_16_64(V_i, j, W=None):
-    high_A12, low_A12 = divmod(V_i[0], BIT_EACH_32[20])
-    r_l_12 = high_A12 + low_A12 * BIT_EACH_32[12]
-    high, low = divmod((r_l_12 + V_i[4] + T_j_rotate_left[j]) & 0xFFFFFFFF, BIT_EACH_32[25])
-    SS1 = high + low * BIT_EACH_32[7]
-    SS2 = SS1 ^ r_l_12
-    # FF
-    TT1 = (((V_i[0] & V_i[1]) | (V_i[0] & V_i[2]) | (V_i[1] & V_i[2])) + V_i[3] + SS2 + (W[j] ^ W[j + 4])) & 0xFFFFFFFF
-    # GG
-    TT2 = (((V_i[4] & V_i[5]) | ((~ V_i[4]) & V_i[6])) + V_i[7] + SS1 + W[j]) & 0xFFFFFFFF
-    high_B9, low_B9 = divmod(V_i[1], BIT_EACH_32[23])
-    high_F19, low_F19 = divmod(V_i[5], BIT_EACH_32[13])
-    return [TT1, V_i[0], high_B9 + low_B9 * BIT_EACH_32[9] & 0xffffffff, V_i[2], P_0(TT2) & 0xffffffff, \
-            V_i[4], high_F19 + low_F19 * BIT_EACH_32[19] & 0xffffffff, V_i[6]]
-
-
-def __cf_reduce_0_16(V_i, j, W=None):
-    high_A12, low_A12 = divmod(V_i[0], BIT_EACH_32[20])
-    r_l_12 = high_A12 + low_A12 * BIT_EACH_32[12]
-    high, low = divmod((r_l_12 + V_i[4] + T_j_rotate_left[j]) & 0xFFFFFFFF, BIT_EACH_32[25])
-    SS1 = high + low * BIT_EACH_32[7]
-    SS2 = SS1 ^ r_l_12
-    # FF
-    TT1 = ((V_i[0] ^ V_i[1] ^ V_i[2]) + V_i[3] + SS2 + (W[j] ^ W[j + 4])) & 0xFFFFFFFF
-    # GG
-    TT2 = ((V_i[4] ^ V_i[5] ^ V_i[6]) + V_i[7] + SS1 + W[j]) & 0xFFFFFFFF
-    high_B9, low_B9 = divmod(V_i[1], BIT_EACH_32[23])
-    high_F19, low_F19 = divmod(V_i[5], BIT_EACH_32[13])
-    high, low = divmod(TT2, BIT_EACH_32[23])
-    r_l_9 = high + low * BIT_EACH_32[9]
-    high, low = divmod(TT2, BIT_EACH_32[15])
-    r_l_17 = high + low * BIT_EACH_32[17]
-    return [TT1, V_i[0], high_B9 + low_B9 * BIT_EACH_32[9] & 0xffffffff, V_i[2], (TT2 ^ r_l_9 ^ r_l_17) & 0xffffffff, \
-            V_i[4], high_F19 + low_F19 * BIT_EACH_32[19] & 0xffffffff, V_i[6]]
-
-
 def CF(V_i, B_i):
-    W = [(B_i[ind] * BIT_EACH_32[24]) + (B_i[ind + 1] * BIT_EACH_32[16]) + (B_i[ind + 2] * BIT_EACH_32[8]) + (
-        B_i[ind + 3]) for ind in range(0, 64, 4)]
+    W = [(B_i[ind] << 24) | (B_i[ind + 1] << 16) | (B_i[ind + 2] << 8) | B_i[ind + 3]
+         for ind in range(0, 64, 4)]
     for j in range(16, 68):
-        high_W3_15, low_W3_15 = divmod(W[-3], BIT_EACH_32[17])
-        high_W13_7, low_W13_7 = divmod(W[-13], BIT_EACH_32[25])
-        # P_1
-        X = W[- 16] ^ W[- 9] ^ (high_W3_15 + low_W3_15 * BIT_EACH_32[15])
-        high_P1_15, low_P1_15 = divmod(X, BIT_EACH_32[17])
-        r_l_15 = high_P1_15 + low_P1_15 * BIT_EACH_32[15]
-        high_P1_23, low_P1_23 = divmod(X, BIT_EACH_32[9])
-        r_l_23 = high_P1_23 + low_P1_23 * BIT_EACH_32[23]
-        # return X ^ (rotate_left(X, 15)) ^ (rotate_left(X, 23))
-        W.append(X ^ r_l_15 ^ r_l_23 ^ (high_W13_7 + low_W13_7 * BIT_EACH_32[7]) ^ W[- 6])
-        # W.append(P_1(W[- 16] ^ W[- 9] ^ (high_W3_15 + low_W3_15 * BIT_EACH_32[15])) ^ (
-        #         high_W13_7 + low_W13_7 * BIT_EACH_32[7]) ^ W[- 6])
+        X = W[-16] ^ W[-9] ^ _rotl(W[-3], 15)
+        W.append(P_1(X) ^ _rotl(W[-13], 7) ^ W[-6])
     W_1 = [W[j] ^ W[j + 4] for j in range(64)]
     A, B, C, D, E, F, G, H = V_i
     for j in range(0, 16):
-        high_A12, low_A12 = divmod(A, BIT_EACH_32[20])
-        r_l_12 = high_A12 + low_A12 * BIT_EACH_32[12]
-        high, low = divmod((r_l_12 + E + T_j_rotate_left[j]) & 0xFFFFFFFF, BIT_EACH_32[25])
-        SS1 = high + low * BIT_EACH_32[7]
-        SS2 = SS1 ^ r_l_12
-        # Wj = (B_i[ind] * BIT_EACH_32[24]) + (B_i[ind + 1] * BIT_EACH_32[16]) + (B_i[ind + 2] * BIT_EACH_32[8]) + (B_i[ind + 3])
-        # FF
+        SS1 = _rotl((_rotl(A, 12) + E + T_j_rotate_left[j]) & 0xFFFFFFFF, 7)
+        SS2 = SS1 ^ _rotl(A, 12)
         TT1 = ((A ^ B ^ C) + D + SS2 + W_1[j]) & 0xFFFFFFFF
-        # GG
         TT2 = ((E ^ F ^ G) + H + SS1 + W[j]) & 0xFFFFFFFF
-        high_B9, low_B9 = divmod(B, BIT_EACH_32[23])
-        high_F19, low_F19 = divmod(F, BIT_EACH_32[13])
-        high, low = divmod(TT2, BIT_EACH_32[23])
-        r_l_9 = high + low * BIT_EACH_32[9]
-        high, low = divmod(TT2, BIT_EACH_32[15])
-        r_l_17 = high + low * BIT_EACH_32[17]
-        A, B, C, D, E, F, G, H = TT1, A, high_B9 + low_B9 * BIT_EACH_32[9] & 0xffffffff, C, (
-                TT2 ^ r_l_9 ^ r_l_17) & 0xffffffff, E, high_F19 + low_F19 * BIT_EACH_32[19] & 0xffffffff, G
+        A, B, C, D, E, F, G, H = TT1, A, _rotl(B, 9), C, P_0(TT2), E, _rotl(F, 19), G
     for j in range(16, 64):
-        high_A12, low_A12 = divmod(A, BIT_EACH_32[20])
-        r_l_12 = high_A12 + low_A12 * BIT_EACH_32[12]
-        high, low = divmod((r_l_12 + E + T_j_rotate_left[j]) & 0xFFFFFFFF, BIT_EACH_32[25])
-        SS1 = high + low * BIT_EACH_32[7]
-        SS2 = SS1 ^ r_l_12
-        # FF
+        SS1 = _rotl((_rotl(A, 12) + E + T_j_rotate_left[j]) & 0xFFFFFFFF, 7)
+        SS2 = SS1 ^ _rotl(A, 12)
         TT1 = (((A & B) | (A & C) | (B & C)) + D + SS2 + W_1[j]) & 0xFFFFFFFF
-        # GG
-        TT2 = (((E & F) | ((~ E) & G)) + H + SS1 + W[j]) & 0xFFFFFFFF
-        high_B9, low_B9 = divmod(B, BIT_EACH_32[23])
-        high_F19, low_F19 = divmod(F, BIT_EACH_32[13])
-        high, low = divmod(TT2, BIT_EACH_32[23])
-        r_l_9 = high + low * BIT_EACH_32[9]
-        high, low = divmod(TT2, BIT_EACH_32[15])
-        r_l_17 = high + low * BIT_EACH_32[17]
-        A, B, C, D, E, F, G, H = TT1, A, high_B9 + low_B9 * BIT_EACH_32[9] & 0xffffffff, C, (
-                TT2 ^ r_l_9 ^ r_l_17) & 0xffffffff, E, high_F19 + low_F19 * BIT_EACH_32[19] & 0xffffffff, G
+        TT2 = (((E & F) | ((~E) & G)) + H + SS1 + W[j]) & 0xFFFFFFFF
+        A, B, C, D, E, F, G, H = TT1, A, _rotl(B, 9), C, P_0(TT2), E, _rotl(F, 19), G
     return [A ^ V_i[0], B ^ V_i[1], C ^ V_i[2],
             D ^ V_i[3], E ^ V_i[4], F ^ V_i[5], G ^ V_i[6], H ^ V_i[7]]
-
-
-def CF2(V_i, B_i):
-    W = [(B_i[ind] * BIT_EACH_32[24]) + (B_i[ind + 1] * BIT_EACH_32[16]) + (B_i[ind + 2] * BIT_EACH_32[8]) + (
-        B_i[ind + 3]) for ind in range(0, 64, 4)]
-    for j in range(16, 68):
-        high_W3_15, low_W3_15 = divmod(W[-3], BIT_EACH_32[17])
-        high_W13_7, low_W13_7 = divmod(W[-13], BIT_EACH_32[25])
-        W.append(P_1(W[- 16] ^ W[- 9] ^ (high_W3_15 + low_W3_15 * BIT_EACH_32[15])) ^ (
-                high_W13_7 + low_W13_7 * BIT_EACH_32[7]) ^ W[- 6])
-    V_i_1 = reduce(lambda a, b: __cf_reduce_0_16(a, b, W), range(0, 16), V_i.copy())
-    V_i_2 = reduce(lambda a, b: __cf_reduce_16_64(a, b, W), range(16, 64), V_i_1)
-    return [V_i_2[0] ^ V_i[0], V_i_2[1] ^ V_i[1], V_i_2[2] ^ V_i[2],
-            V_i_2[3] ^ V_i[3], V_i_2[4] ^ V_i[4], V_i_2[5] ^ V_i[5], V_i_2[6] ^ V_i[6], V_i_2[7] ^ V_i[7]]
-
-
-def CF3(V_i, B_i):
-    W = [(B_i[ind] * BIT_EACH_32[24]) + (B_i[ind + 1] * BIT_EACH_32[16]) + (B_i[ind + 2] * BIT_EACH_32[8]) + (
-        B_i[ind + 3]) for ind in range(0, 64, 4)]
-    for j in range(16, 68):
-        # a = (P_1(W[- 16] ^ W[- 9] ^ (rotate_left(W[- 3], 15))) ^ (rotate_left(W[- 13], 7)) ^ W[- 6])
-        high_W3_15, low_W3_15 = divmod(W[-3], BIT_EACH_32[17])
-        high_W13_7, low_W13_7 = divmod(W[-13], BIT_EACH_32[25])
-        W.append(P_1(W[- 16] ^ W[- 9] ^ (high_W3_15 + low_W3_15 * BIT_EACH_32[15])) ^ (
-                high_W13_7 + low_W13_7 * BIT_EACH_32[7]) ^ W[- 6])
-    V_i_1 = reduce(lambda a, b: __cf_reduce_0_16(a, b, W), range(0, 16), V_i.copy())
-    V_i_2 = reduce(lambda a, b: __cf_reduce_16_64(a, b, W), range(16, 64), V_i_1)
-    return [V_i_2[0] ^ V_i[0], V_i_2[1] ^ V_i[1], V_i_2[2] ^ V_i[2],
-            V_i_2[3] ^ V_i[3], V_i_2[4] ^ V_i[4], V_i_2[5] ^ V_i[5], V_i_2[6] ^ V_i[6], V_i_2[7] ^ V_i[7]]
 
 
 def digest(msg, Hexstr=0):
@@ -249,13 +142,13 @@ hexdigest = Hash_sm3
 
 def _BKDF(Z, klen: int):
     """
-    :param Z: Z为16进制表示的比特串（str），
+    :param Z: 16进制表示的比特串（str）或原始字节（bytes）
     :param klen: klen为密钥长度（单位byte）
     :return:
     """
     klen = int(klen)
     rcnt = int(ceil(klen / 32))
-    Zin = hex2byte(Z)
+    Zin = hex2byte(Z) if isinstance(Z, str) else list(Z)
     b = bytearray()
     [b.extend(digest(Zin + PUT_UINT32_BE(ct), 0)) for ct in range(1, rcnt + 1)]
     return b[:klen]
@@ -343,6 +236,3 @@ class SM3Type(object):
 
 
 SM3 = SM3Type
-
-del CF2
-del CF3

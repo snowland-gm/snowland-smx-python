@@ -90,19 +90,113 @@ def get_random_str(n: int = 64):
     return '%0{}x'.format(n) % get_random_int(sm2_N)
 
 
+def _jac_double(X, Y, Z, P=sm2_P, a_3=sm2_a_3):
+    """Double a Jacobian point (X,Y,Z) using integer arithmetic."""
+    if Z == 0:
+        return (X, Y, Z)
+    T6 = (Z * Z) % P
+    T2 = (Y * Y) % P
+    T3 = (X + T6) % P
+    T4 = (X - T6) % P
+    T1 = (T3 * T4) % P
+    T3 = (Y * Z) % P
+    T4 = (T2 * 8) % P
+    T5 = (X * T4) % P
+    T1 = (T1 * 3) % P
+    T6 = (T6 * T6) % P
+    T6 = (a_3 * T6) % P
+    T1 = (T1 + T6) % P
+    z3 = (T3 + T3) % P
+    T3 = (T1 * T1) % P
+    T2 = (T2 * T4) % P
+    x3 = (T3 - T5) % P
+    if T5 % 2:
+        T4 = (T5 + ((T5 + P) >> 1) - T3) % P
+    else:
+        T4 = (T5 + (T5 >> 1) - T3) % P
+    T1 = (T1 * T4) % P
+    y3 = (T1 - T2) % P
+    return (x3, y3, z3)
+
+
+def _jac_add_affine(X1, Y1, Z1, x2, y2, P=sm2_P):
+    """Add Jacobian point (X1,Y1,Z1) with affine point (x2,y2) using integer arithmetic."""
+    if Z1 == 0:
+        return (x2, y2, 1)
+    T1 = (Z1 * Z1) % P
+    T2 = (y2 * Z1) % P
+    T3 = (x2 * T1) % P
+    T1 = (T1 * T2) % P
+    T2 = (T3 - X1) % P
+    T3 = (T3 + X1) % P
+    T4 = (T2 * T2) % P
+    T1 = (T1 - Y1) % P
+    Z3 = (Z1 * T2) % P
+    T2 = (T2 * T4) % P
+    T3 = (T3 * T4) % P
+    T5 = (T1 * T1) % P
+    T4 = (X1 * T4) % P
+    X3 = (T5 - T3) % P
+    T2 = (Y1 * T2) % P
+    T3 = (T4 - X3) % P
+    T1 = (T1 * T3) % P
+    Y3 = (T1 - T2) % P
+    return (X3, Y3, Z3)
+
+
+def _jac_to_affine(X, Y, Z, P=sm2_P):
+    """Convert Jacobian (X,Y,Z) to affine (x,y); None at point at infinity."""
+    if Z == 0:
+        return None
+    z_inv = pow(Z, P - 2, P)
+    z_inv_sq = (z_inv * z_inv) % P
+    z_inv_cu = (z_inv_sq * z_inv) % P
+    x_new = (X * z_inv_sq) % P
+    y_new = (Y * z_inv_cu) % P
+    return (x_new, y_new)
+
+
+def _jac_scalar_mult(k, x, y, z, P=sm2_P):
+    """k * (x,y,z) via double-and-add (MSB-first, no list allocation)."""
+    if k == 0:
+        return (0, 0, 0)
+    X, Y, Z = 0, 0, 0
+    got = False
+    for i in range(k.bit_length() - 1, -1, -1):
+        if got:
+            X, Y, Z = _jac_double(X, Y, Z, P)
+        if (k >> i) & 1:
+            if not got:
+                X, Y, Z = x, y, z
+                got = True
+            else:
+                X, Y, Z = _jac_add_affine(X, Y, Z, x, y, P)
+    return (X, Y, Z)
+
+
 def kG(k, Point, len_para):
     """
-    kP operation
-    :param k:
-    :param Point:
-    :param len_para:
-    :return:
+    kP operation (integer arithmetic internally, hex-string in / out)
+    :param k: scalar (int)
+    :param Point: point as hex string (affine x||y, or jacobian x||y||z)
+    :param len_para: hex length of a field element
+    :return: affine point as hex string
     """
-    Point += '1'
-    Temp = reduce(
-        lambda x, y: AddPoint(DoublePoint(x, len_para), Point, len_para) if y == '1' else DoublePoint(x, len_para),
-        bin(k)[3:], Point)
-    return ConvertJacb2Nor(Temp, len_para)
+    length = len(Point)
+    len_2 = 2 * len_para
+    if length < len_2:
+        return None
+    x = int(Point[0:len_para], 16)
+    y = int(Point[len_para:len_2], 16)
+    z = 1 if length == len_2 else int(Point[len_2:], 16)
+    X, Y, Z = _jac_scalar_mult(k, x, y, z)
+    res = _jac_to_affine(X, Y, Z)
+    if res is None:
+        return None
+    x_new, y_new = res
+    form = '%%0%dx' % len_para
+    form = form * 2
+    return form % (x_new, y_new)
 
 
 def DoublePoint(Point, len_para, P=sm2_P):
@@ -205,7 +299,6 @@ def ConvertJacb2Nor(Point, len_para, P=sm2_P):
         form = form * 2
         return form % (x_new, y_new)
     else:
-        print("Point at infinity!!!!!!!!!!!!")
         return None
 
 

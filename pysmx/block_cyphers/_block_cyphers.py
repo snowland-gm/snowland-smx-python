@@ -7,7 +7,6 @@
 
 from abc import ABCMeta, abstractmethod
 from pysmx.common import padding_map, unpadding_map
-import copy
 from cryptography.hazmat.bindings.openssl.binding import *
 ENCRYPT = 0
 DECRYPT = 1
@@ -92,9 +91,9 @@ class BlockCyphers(metaclass=ABCMeta):
             input_data = self.padding(input_data, self.block_size)
             length = len(input_data)
             while length > 0:
-                tmp_input[0:self.block_size] = XOR(input_data[i:i + self.block_size], iv[0:self.block_size])
-                output_data += self.one_round(self.sk, tmp_input[0:self.block_size])
-                iv = copy.deepcopy(output_data[i:i + self.block_size])
+                out_block = self.one_round(self.sk, XOR_BYTES(input_data[i:i + self.block_size], iv[0:self.block_size]))
+                output_data += out_block
+                iv = bytes(output_data[i:i + self.block_size])
                 i += self.block_size
                 length -= self.block_size
         else:
@@ -121,9 +120,9 @@ class BlockCyphers(metaclass=ABCMeta):
             length = len(input_data)
             while length > 0:
                 tmp_input = input_data[i:i + self.block_size]
-                out = self.one_round(self.sk, XOR(iv, tmp_input[0:self.block_size]))
+                out = self.one_round(self.sk, XOR_BYTES(iv, tmp_input[0:self.block_size]))
                 output_data.extend(out)
-                iv = copy.deepcopy(XOR(out, tmp_input))
+                iv = XOR_BYTES(out, tmp_input)
                 i += self.block_size
                 length -= self.block_size
         else:
@@ -131,8 +130,8 @@ class BlockCyphers(metaclass=ABCMeta):
             while length > 0:
                 tmp_input = input_data[i:i + self.block_size]
                 out = self.one_round(self.sk, tmp_input[0:self.block_size])
-                out = XOR(out, iv)
-                iv = copy.deepcopy(XOR(out, tmp_input))
+                out = XOR_BYTES(out, iv)
+                iv = XOR_BYTES(out, tmp_input)
                 output_data.extend(out)
                 i += self.block_size
                 length -= self.block_size
@@ -155,7 +154,7 @@ class BlockCyphers(metaclass=ABCMeta):
                 tmp_input = input_data[i:i + self.block_size]
                 out = self.one_round(self.sk, iv)
                 iv = out
-                out = XOR(out, tmp_input)
+                out = XOR_BYTES(out, tmp_input)
                 output_data.extend(out)
                 i += self.block_size
                 length -= self.block_size
@@ -167,7 +166,7 @@ class BlockCyphers(metaclass=ABCMeta):
                 tmp_input = input_data[i:i + self.block_size]
                 out = self.one_round(self.sk, iv)
                 iv = out
-                out = XOR(out, tmp_input)
+                out = XOR_BYTES(out, tmp_input)
                 output_data.extend(out)
                 i += self.block_size
                 length -= self.block_size
@@ -192,7 +191,7 @@ class BlockCyphers(metaclass=ABCMeta):
             while length > 0:
                 tmp_input = input_data[i:i + self.block_size]
                 out = self.one_round(self.sk, iv)
-                iv = XOR(tmp_input, out)
+                iv = XOR_BYTES(tmp_input, out)
                 output_data.extend(iv)
                 i += self.block_size
                 length -= self.block_size
@@ -203,7 +202,7 @@ class BlockCyphers(metaclass=ABCMeta):
             while length > 0:
                 tmp_input = input_data[i:i + self.block_size]
                 out = self.one_round(self.sk, iv)
-                out = XOR(out, tmp_input)
+                out = XOR_BYTES(out, tmp_input)
                 iv = tmp_input
                 output_data.extend(out)
                 i += self.block_size
