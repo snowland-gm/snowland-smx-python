@@ -22,6 +22,10 @@
 - SM3 模块新增后端抽象（`_backend.py`）
 - 版本号从 0.3.2-alpha.1 升级至 1.0.0
 
+### 安全修复
+
+- **SM2 随机数发生器升级为 CSPRNG**：私钥 `d` 与加密临时值 `k` 原先由 `random.choices`（Mersenne Twister，可预测 PRNG）生成，存在私钥被反推、明文乃至私钥泄露风险。现已改用 `secrets`（密码学安全随机数发生器），并将取值约束到 `[1, sm2_N-1]`，符合 GM/T 0003 / GM/T 0009 要求。`is_prime` 的 Miller-Rabin 基数随机源同步改为 `secrets`。
+
 ### Bug 修复
 
 - **SM4 CFB/OFB/PCBC 解密路径**：修复 `block_cyphers` 中 bytearray 与 bytes 拼接导致的 TypeError（CFB/OFB/PCBC 模式下解密返回 bytearray，onx_round 返回 bytes，拼接抛出 TypeError）
