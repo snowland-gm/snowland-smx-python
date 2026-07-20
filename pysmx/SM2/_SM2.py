@@ -7,7 +7,7 @@
 
 
 from functools import reduce
-from random import choices, randint
+import secrets
 from pysmx.SM3 import KDF
 from pysmx.crypto import hashlib
 from collections import namedtuple
@@ -21,7 +21,6 @@ sm2_a = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFC', 
 sm2_b = int('28E9FA9E9D9F5E344D5A9E4BCF6509A7F39789F515AB8F92DDBCBD414D940E93', 16)
 sm2_a_3 = (sm2_a + 3) % sm2_P  # intermediate value for double point
 Fp = 256
-letterlist = "0123456789abcdef"
 
 
 # sm2_N = int('BDB6F4FE3E8B1D9E0DA8C0D40FC962195DFAE76F56564677', 16)
@@ -54,7 +53,7 @@ def is_prime(number: (str, int), itor=10):
     if not isinstance(number, int):
         number = int(number)
     for i in range(itor):
-        a = randint(1, number - 1)
+        a = secrets.randbelow(number - 1) + 1
         if modular_power(a, number - 1, number) != 1:
             return False
     return True
@@ -74,8 +73,21 @@ def get_hash(algorithm_name, message, Hexstr=0, encoding='utf-8'):
     return f.hexdigest()
 
 
+def get_random_int(upper):
+    """Return a cryptographically secure random integer in [1, upper - 1]."""
+    if upper <= 2:
+        raise ValueError('upper must be greater than 2')
+    return secrets.randbelow(upper - 1) + 1
+
+
 def get_random_str(n: int = 64):
-    return ''.join(choices(letterlist, k=n))
+    """Return a cryptographically secure random hex string of n digits.
+
+    The underlying integer is drawn from [1, sm2_N - 1] so the result is
+    directly usable as an SM2 private key or ephemeral value, complying with
+    GM/T 0003 (random values must lie in [1, n-1]).
+    """
+    return '%0{}x'.format(n) % get_random_int(sm2_N)
 
 
 def kG(k, Point, len_para):

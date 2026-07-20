@@ -193,6 +193,34 @@ class TestSM2Standard(unittest.TestCase):
         result = self.sm2.Verify(sig, e, pk, 64, Hexstr=1)
         self.assertTrue(result)
 
+    # ---- Random source hardening (improvement_plan 1.1) ----
+
+    def test_random_source_secure_range(self):
+        """get_random_str must yield CSPRNG values within [1, sm2_N - 1]."""
+        from pysmx.SM2._SM2 import get_random_str, sm2_N
+        samples = [get_random_str(64) for _ in range(50)]
+        for s in samples:
+            self.assertEqual(len(s), 64)
+            self.assertRegex(s, r'^[0-9a-f]{64}$')
+            value = int(s, 16)
+            self.assertGreaterEqual(value, 1)
+            self.assertLess(value, sm2_N)
+
+    def test_random_source_not_constant(self):
+        """Repeated calls must not produce identical output (no fixed seed)."""
+        from pysmx.SM2._SM2 import get_random_str
+        values = {get_random_str(64) for _ in range(20)}
+        self.assertGreater(len(values), 1)
+
+    def test_keypair_private_key_in_range(self):
+        """Generated private key d must lie within [1, sm2_N - 1]."""
+        from pysmx.SM2._SM2 import sm2_N
+        for _ in range(20):
+            pk, sk = self.sm2.generate_keypair(64)
+            d = int(sk.hex(), 16)
+            self.assertGreaterEqual(d, 1)
+            self.assertLess(d, sm2_N)
+
 
 if __name__ == '__main__':
     unittest.main()
