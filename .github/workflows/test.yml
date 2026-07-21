@@ -39,11 +39,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install -r test_requirements.txt
+          pip install -r requirements-test.txt
 
       - name: Run tests
         run: |
-          python run_smx_tests.py
+          python scripts/run_smx_tests.py
 
   benchmark:
     runs-on: ubuntu-latest
@@ -61,11 +61,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install -r test_requirements.txt
+          pip install -r requirements-bench.txt
           pip install gmssl gmssl-pyx || echo "gmssl/gmssl-pyx install failed; running pysmx-only"
 
       - name: Run benchmark and generate report
-        run: python benchmark.py --quick --md doc/benchmark.md
+        run: python scripts/benchmark.py --quick --md doc/benchmark.md
 
       - name: Upload benchmark report
         uses: actions/upload-artifact@v4

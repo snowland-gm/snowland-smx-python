@@ -5,5 +5,5 @@ include LICENSE
 include requirements.txt
 include test_requirements.txt
 include pyproject.toml
-include run_smx_tests.py
+include scripts/run_smx_tests.py
 graft doc

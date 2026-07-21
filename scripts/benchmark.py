@@ -14,11 +14,11 @@ gmssl-pyx`` to enable the comparison columns. When neither is available the
 script still runs and reports pysmx numbers only.
 
 Usage:
-    python benchmark.py                 # run every benchmark
-    python benchmark.py sm3 sm4         # run only the listed algorithms
-    python benchmark.py --json out.json # also dump raw numbers to JSON
-    python benchmark.py --quick         # smaller data sizes, faster run
-    python benchmark.py --md doc/benchmark.md  # write a Markdown report
+    python scripts/benchmark.py                 # run every benchmark
+    python scripts/benchmark.py sm3 sm4         # run only the listed algorithms
+    python scripts/benchmark.py --json out.json # also dump raw numbers to JSON
+    python scripts/benchmark.py --quick         # smaller data sizes, faster run
+    python scripts/benchmark.py --md doc/benchmark.md  # write a Markdown report
 
 Supported algorithm selectors: sm2, sm3, sm4, zuc
 """
@@ -31,7 +31,7 @@ import time
 from datetime import datetime
 from time import perf_counter
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
@@ -551,7 +551,7 @@ def _render_markdown(results, sizes, comparisons, python_version):
     L = []
     L.append("# snowland-smx 性能对比（pysmx vs gmssl / gmssl-pyx）")
     L.append("")
-    L.append("本文档由 `benchmark.py` 自动生成，请勿手动修改。")
+    L.append("本文档由 `scripts/benchmark.py` 自动生成，请勿手动修改。")
     L.append("")
     L.append("## 测试环境")
     L.append("")
@@ -564,7 +564,7 @@ def _render_markdown(results, sizes, comparisons, python_version):
     size_str = " / ".join(_fmt_size(s) for s in sizes)
     L.append("- 数据规模: %s" % size_str)
     L.append("- 生成时间: %s" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    L.append("- 复现命令: `py benchmark.py --quick`")
+    L.append("- 复现命令: `py scripts/benchmark.py --quick`")
     L.append("")
     L.append("> speedup = pysmx MB/s ÷ 对比库 MB/s")
     L.append("")

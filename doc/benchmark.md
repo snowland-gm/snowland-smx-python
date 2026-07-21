@@ -1,15 +1,15 @@
 # snowland-smx 性能对比（pysmx vs gmssl / gmssl-pyx）
 
-本文档由 `benchmark.py` 自动生成，请勿手动修改。
+本文档由 `scripts/benchmark.py` 自动生成，请勿手动修改。
 
 ## 测试环境
 
 - Python: 3.13.5
 - 对比库 gmssl: 已启用
 - 对比库 gmssl-pyx: 已启用
-- 数据规模: 64 B / 1 KB / 16 KB
-- 生成时间: 2026-07-18 18:50:40
-- 复现命令: `py benchmark.py --quick`
+- 数据规模: 64 B / 1 KB / 64 KB / 1 MB
+- 生成时间: 2026-07-21 10:02:53
+- 复现命令: `py scripts/benchmark.py --quick`
 
 > speedup = pysmx MB/s ÷ 对比库 MB/s
 
@@ -19,33 +19,36 @@
 
 | operation | size | ops/s | MB/s | speedup (vs pysmx) |
 | --- | --- | --- | --- | --- |
-| keygen | - | 8.8 | 0.0 | - |
-| encrypt | 64 B | 8.8 | 0.0 | - |
-| gmssl | | 8.4 | 0.0 | 1.04x |
-| gmssl-pyx | | 8.2 | 0.0 | 1.08x |
-| decrypt | 64 B | 5.3 | 0.0 | - |
-| gmssl | | 2.3 | 0.0 | 2.25x |
-| gmssl-pyx | | 3.8 | 0.0 | 1.40x |
-| sign | 64 B | 4.3 | 0.0 | - |
-| gmssl | | 3.6 | 0.0 | 1.19x |
-| gmssl-pyx | | 5.4 | 0.0 | 0.79x |
-| verify | 64 B | 7.6 | 0.0 | - |
-| gmssl | | 5.9 | 0.0 | 1.30x |
-| gmssl-pyx | | 8.5 | 0.0 | 0.90x |
+| keygen | - | 6.0 | 0.0 | - |
+| encrypt | 64 B | 5.6 | 0.0 | - |
+| gmssl | | 7.8 | 0.0 | 0.71x |
+| gmssl-pyx | | 6.4 | 0.0 | 0.86x |
+| decrypt | 64 B | 7.5 | 0.0 | - |
+| gmssl | | 7.6 | 0.0 | 0.99x |
+| gmssl-pyx | | 7.3 | 0.0 | 1.03x |
+| sign | 64 B | 3.7 | 0.0 | - |
+| gmssl | | 6.1 | 0.0 | 0.61x |
+| gmssl-pyx | | 8.1 | 0.0 | 0.46x |
+| verify | 64 B | 5.3 | 0.0 | - |
+| gmssl | | 10.0 | 0.0 | 0.53x |
+| gmssl-pyx | | 9.1 | 0.0 | 0.58x |
 
 ## SM3
 
 | operation | size | ops/s | MB/s | speedup (vs pysmx) |
 | --- | --- | --- | --- | --- |
-| hash | 64 B | 4.9 | 0.0 | - |
-| gmssl | | 9.9 | 0.0 | 0.49x |
-| gmssl-pyx | | 7.1 | 0.0 | 0.69x |
-| hash | 1 KB | 9.9 | 0.0 | - |
-| gmssl | | 5.4 | 0.0 | 1.84x |
-| gmssl-pyx | | 1.5 | 0.0 | 6.49x |
-| hash | 16 KB | 8.2 | 0.1 | - |
-| gmssl | | 4.1 | 0.1 | 2.02x |
-| gmssl-pyx | | 2.0 | 0.0 | 4.01x |
+| hash | 64 B | 4.0 | 0.0 | - |
+| gmssl | | 4.3 | 0.0 | 0.92x |
+| gmssl-pyx | | 9.4 | 0.0 | 0.42x |
+| hash | 1 KB | 7.7 | 0.0 | - |
+| gmssl | | 8.8 | 0.0 | 0.88x |
+| gmssl-pyx | | 6.7 | 0.0 | 1.15x |
+| hash | 64 KB | 3.3 | 0.2 | - |
+| gmssl | | 2.9 | 0.2 | 1.12x |
+| gmssl-pyx | | 7.0 | 0.4 | 0.47x |
+| hash | 1 MB | 0.1 | 0.1 | - |
+| gmssl | | 0.1 | 0.1 | 1.07x |
+| gmssl-pyx | | 9.4 | 9.4 | 0.01x |
 
 ## SM4
 
@@ -53,46 +56,57 @@
 
 | operation | size | ops/s | MB/s | speedup (vs pysmx) |
 | --- | --- | --- | --- | --- |
-| ecb_encrypt | 64 B | 3.8 | 0.0 | - |
-| gmssl | | 6.4 | 0.0 | 0.59x |
-| ecb_decrypt | 64 B | 9.2 | 0.0 | - |
-| gmssl | | 6.1 | 0.0 | 1.50x |
-| ecb_encrypt | 1 KB | 6.0 | 0.0 | - |
-| gmssl | | 1.8 | 0.0 | 3.36x |
-| ecb_decrypt | 1 KB | 3.3 | 0.0 | - |
-| gmssl | | 2.5 | 0.0 | 1.29x |
-| ecb_encrypt | 16 KB | 6.7 | 0.1 | - |
-| gmssl | | 8.8 | 0.1 | 0.77x |
-| ecb_decrypt | 16 KB | 6.7 | 0.1 | - |
-| gmssl | | 4.8 | 0.1 | 1.39x |
+| ecb_encrypt | 64 B | 4.9 | 0.0 | - |
+| gmssl | | 5.6 | 0.0 | 0.88x |
+| ecb_decrypt | 64 B | 9.3 | 0.0 | - |
+| gmssl | | 4.3 | 0.0 | 2.19x |
+| ecb_encrypt | 1 KB | 0.0 | 0.0 | - |
+| gmssl | | 7.5 | 0.0 | 0.00x |
+| ecb_decrypt | 1 KB | 0.7 | 0.0 | - |
+| gmssl | | 6.8 | 0.0 | 0.11x |
+| ecb_encrypt | 64 KB | 6.0 | 0.4 | - |
+| gmssl | | 2.5 | 0.2 | 2.36x |
+| ecb_decrypt | 64 KB | 8.1 | 0.5 | - |
+| gmssl | | 1.5 | 0.1 | 5.46x |
+| ecb_encrypt | 1 MB | 0.8 | 0.8 | - |
+| gmssl | | 0.1 | 0.1 | 5.45x |
+| ecb_decrypt | 1 MB | 0.7 | 0.7 | - |
+| gmssl | | 0.1 | 0.1 | 5.09x |
 
 ### CBC
 
 | operation | size | ops/s | MB/s | speedup (vs pysmx) |
 | --- | --- | --- | --- | --- |
-| cbc_encrypt | 64 B | 5.9 | 0.0 | - |
-| gmssl | | 9.4 | 0.0 | 0.62x |
-| gmssl-pyx | | 4.3 | 0.0 | 1.36x |
-| cbc_decrypt | 64 B | 4.6 | 0.0 | - |
-| gmssl | | 7.6 | 0.0 | 0.60x |
-| gmssl-pyx | | 3.9 | 0.0 | 1.18x |
-| cbc_encrypt | 1 KB | 4.1 | 0.0 | - |
-| gmssl | | 2.0 | 0.0 | 2.03x |
-| gmssl-pyx | | 9.7 | 0.0 | 0.43x |
-| cbc_decrypt | 1 KB | 4.8 | 0.0 | - |
-| gmssl | | 3.3 | 0.0 | 1.46x |
-| gmssl-pyx | | 4.6 | 0.0 | 1.04x |
-| cbc_encrypt | 16 KB | 7.6 | 0.1 | - |
-| gmssl | | 5.5 | 0.1 | 1.37x |
-| gmssl-pyx | | 8.8 | 0.1 | 0.86x |
-| cbc_decrypt | 16 KB | 4.8 | 0.1 | - |
-| gmssl | | 6.4 | 0.1 | 0.74x |
-| gmssl-pyx | | 6.4 | 0.1 | 0.74x |
+| cbc_encrypt | 64 B | 6.7 | 0.0 | - |
+| gmssl | | 4.3 | 0.0 | 1.56x |
+| gmssl-pyx | | 0.0 | 0.0 | 629.66x |
+| cbc_decrypt | 64 B | 5.4 | 0.0 | - |
+| gmssl | | 6.8 | 0.0 | 0.80x |
+| gmssl-pyx | | 6.8 | 0.0 | 0.80x |
+| cbc_encrypt | 1 KB | 7.2 | 0.0 | - |
+| gmssl | | 7.1 | 0.0 | 1.00x |
+| gmssl-pyx | | 8.3 | 0.0 | 0.87x |
+| cbc_decrypt | 1 KB | 0.0 | 0.0 | - |
+| gmssl | | 7.1 | 0.0 | 0.00x |
+| gmssl-pyx | | 7.8 | 0.0 | 0.00x |
+| cbc_encrypt | 64 KB | 7.1 | 0.4 | - |
+| gmssl | | 2.6 | 0.2 | 2.69x |
+| gmssl-pyx | | 6.0 | 0.4 | 1.18x |
+| cbc_decrypt | 64 KB | 9.4 | 0.6 | - |
+| gmssl | | 3.6 | 0.2 | 2.63x |
+| gmssl-pyx | | 6.0 | 0.4 | 1.57x |
+| cbc_encrypt | 1 MB | 0.6 | 0.6 | - |
+| gmssl | | 0.1 | 0.1 | 5.42x |
+| gmssl-pyx | | 9.4 | 9.4 | 0.06x |
+| cbc_decrypt | 1 MB | 0.6 | 0.6 | - |
+| gmssl | | 0.1 | 0.1 | 4.73x |
+| gmssl-pyx | | 0.0 | 0.0 | 355.30x |
 
 ## ZUC
 
 | operation | size | ops/s | MB/s | speedup (vs pysmx) |
 | --- | --- | --- | --- | --- |
-| encrypt | 64 B | 4.2 | 0.0 | - |
-| encrypt | 1 KB | 7.6 | 0.0 | - |
-| encrypt | 16 KB | 6.3 | 0.1 | - |
+| encrypt | 64 B | 7.1 | 0.0 | - |
+| encrypt | 1 KB | 5.9 | 0.0 | - |
+| encrypt | 64 KB | 1.4 | 0.1 | - |
+| encrypt | 1 MB | 0.1 | 0.1 | - |

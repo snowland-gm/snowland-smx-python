@@ -5,7 +5,7 @@
 > 所有结论均基于仓库当前代码，附文件路径与行号作为证据。
 
 分析范围：`pysmx/`（SM2/SM3/SM4/SM9/ZUC 及 backend/block_cyphers/ciphers/common/crypto/ecc/extra）
-`setup.py` / `pyproject.toml` / `requirements*.txt` / `.github/workflows/test.yml` / `run_smx_tests.py`
+`setup.py` / `pyproject.toml` / `requirements*.txt` / `.github/workflows/test.yml` / `scripts/run_smx_tests.py`
 及 `doc/`、`demo/`。
 
 ---
@@ -69,11 +69,11 @@
   - `pysmx/common/_padding.py`、`_common.py` 边界与异常路径。
 
 #### 1.7 测试发现机制脆弱
-- 证据：`run_smx_tests.py:13-19` 手工逐个 import 测试类；新增测试文件若未在此登记则不会运行。
+- 证据：`scripts/run_smx_tests.py:13-19` 手工逐个 import 测试类；新增测试文件若未在此登记则不会运行。
 - 影响：CI 仅运行被手工登记的用例，新测试易被遗漏。
 
 #### 1.8 缺少性能回归与异常路径测试
-- 现状：性能仅由 `benchmark.py` 生成报告，CI 不对其做断言（无"性能回退即失败"）。
+- 现状：性能仅由 `scripts/benchmark.py` 生成报告，CI 不对其做断言（无"性能回退即失败"）。
 - 影响：无法防止性能劣化；边界值、错误密钥、错误密文等异常路径缺少系统化测试。
 
 #### 1.9 无覆盖率度量
@@ -82,7 +82,7 @@
 ### P3 — 性能
 
 #### 1.10 纯 Python 实现，无加速后端
-- 证据：`benchmark.py` 结果：SM4 约 6–9 ops/s（16KB），明显慢于 `gmssl-pyx`（Cython/C）；
+- 证据：`scripts/benchmark.py` 结果：SM4 约 6–9 ops/s（16KB），明显慢于 `gmssl-pyx`（Cython/C）；
   SM2/SM9 大整数虽借助内置 `pow`，但点运算、字段运算仍全 Python。
 - 影响：无法用于高吞吐生产场景。
 
@@ -110,7 +110,7 @@
 - 影响：测试/基准/运行时依赖混在一起，安装面过大；`extras_require` 已定义但未充分利用。
 
 #### 1.15 CI 缺少质量门禁
-- 现状：`test.yml` 仅 `run_smx_tests.py` + benchmark 生成 md。
+- 现状：`test.yml` 仅 `scripts/run_smx_tests.py` + benchmark 生成 md。
 - 缺失：lint（ruff/flake8）、类型检查（mypy）、安全扫描（bandit）、覆盖率、benchmark 性能回归断言。
 
 #### 1.16 编译产物遗留
@@ -168,14 +168,14 @@
 - [ ] 统一 `SM9`/`envelope` 的随机源到 `common/random.py`，消除重复。
 - [ ] 收敛 `backend/_backend.py`：仅注册已实现的 `HashBackend`（及 SM3 HMAC backend），
       移除未实现的 `CipherBackend`/`HMACBackend` 注册。
-- [ ] 验收：运行 `bandit -r pysmx` 无 High/Medium；`run_smx_tests.py` 全绿；
+- [ ] 验收：运行 `bandit -r pysmx` 无 High/Medium；`scripts/run_smx_tests.py` 全绿；
       补充 SM2 已知向量 + 私钥/临时值随机性单测。
 
 ### 阶段二 — 测试与代码质量
 
 目标：提升覆盖与可维护性。
 
-- [ ] 引入 `unittest discover` 自动发现，替换 `run_smx_tests.py` 手工登记；保留汇总输出。
+- [ ] 引入 `unittest discover` 自动发现，替换 `scripts/run_smx_tests.py` 手工登记；保留汇总输出。
 - [ ] 补齐测试：`extra/envelope`、`ecc/*`、`ciphers/algorithm`、`crypto/hashlib`、
       `backend`、异常路径与边界值。
 - [ ] 加入 CI 质量门禁：`ruff`（或 flake8）、`mypy`、`bandit`、覆盖率（coverage ≥ 目标值）。
@@ -231,8 +231,8 @@
 | P1 | 裸 except / py2 残留 | `pysmx/ecc/fq.py:12-16` |
 | P1 | backend 注册越界 | `pysmx/backend/_backend.py:31-33` |
 | P2 | 测试覆盖缺口 | `pysmx/test/`、各未测模块 |
-| P2 | 测试发现脆弱 | `run_smx_tests.py:13-19` |
-| P3 | 纯 Python 性能 | `benchmark.py` 结果、各 `_*.py` |
+| P2 | 测试发现脆弱 | `scripts/run_smx_tests.py:13-19` |
+| P3 | 纯 Python 性能 | `scripts/benchmark.py` 结果、各 `_*.py` |
 | P4 | 版本声明矛盾 | `setup.py:58-68`、`.github/workflows/test.yml` |
 | P4 | 缺 pyproject [project] | `pyproject.toml` |
 | P4 | 依赖管理混乱 | `requirements.txt`、`test_requirements.txt` |
