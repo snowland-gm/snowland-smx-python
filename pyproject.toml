@@ -1,3 +1,38 @@
 [build-system]
-requires = ["setuptools>=40.8.0", "wheel"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "snowland-smx"
+version = "1.1.0"
+description = "Python implementation of Chinese national cryptographic algorithms (SM2/SM3/SM4/SM9/ZUC)"
+readme = "README.en.md"
+requires-python = ">=3.8"
+license = { text = "BSD-3-Clause" }
+authors = [{ name = "A.Star", email = "astar@snowland.ltd" }]
+maintainers = [{ name = "A.Star", email = "astar@snowland.ltd" }]
+keywords = ["sm2", "sm3", "sm4", "sm9", "zuc", "gm", "cryptography", "national-standard"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = ["cryptography"]
+
+[project.optional-dependencies]
+test = ["astartool>=0.0.2", "gmssl"]
+bench = ["gmssl", "gmssl-pyx"]
+
+[project.urls]
+Homepage = "https://github.com/snowland-gm/snowland-smx-python"
+
+[tool.setuptools]
+packages = ["pysmx", "pysmx.*"]
