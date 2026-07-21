@@ -11,13 +11,13 @@ class TestPadding(unittest.TestCase):
 
         s1 = PKCS7Padding(a, self.block_size)
         s2 = PKCS7UnPadding(s1, self.block_size)
-        self.assertEquals(s2, a)
-        self.assertEquals(s1, bytes.fromhex('FF FF FF FF FF FF FF FF FF 07 07 07 07 07 07 07'))
+        self.assertEqual(s2, a)
+        self.assertEqual(s1, bytes.fromhex('FF FF FF FF FF FF FF FF FF 07 07 07 07 07 07 07'))
 
         s1 = PKCS7Padding(b, self.block_size)
         s2 = PKCS7UnPadding(s1, self.block_size)
-        self.assertEquals(s2, b)
-        self.assertEquals(s1, bytes.fromhex('FF FF FF FF FF FF FF FF 08 08 08 08 08 08 08 08'))
+        self.assertEqual(s2, b)
+        self.assertEqual(s1, bytes.fromhex('FF FF FF FF FF FF FF FF 08 08 08 08 08 08 08 08'))
 
     def test_iso10126(self):
         a = bytes.fromhex('FF FF FF FF FF FF FF FF FF')

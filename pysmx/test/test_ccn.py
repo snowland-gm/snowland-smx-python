@@ -1,8 +1,13 @@
-import lizard
 import pathlib
 import unittest
 
+try:
+    import lizard
+except ImportError:
+    lizard = None
 
+
+@unittest.skipIf(lizard is None, "lizard is not installed; skipping complexity checks")
 class TestSM4(unittest.TestCase):
 
     def setUp(self) -> None:

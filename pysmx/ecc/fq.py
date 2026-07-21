@@ -9,12 +9,6 @@ field_modulus = 2188824287183927522224640574525727508869631115729782366268903789
 FQ12_modulus_coeffs = [82, 0, 0, 0, 0, 0, -18, 0, 0, 0, 0, 0]  # Implied + [1]
 FQ12_mc_tuples = [(i, c) for i, c in enumerate(FQ12_modulus_coeffs) if c]
 
-# python3 compatibility
-try:
-    foo = long
-except:
-    long = int
-
 
 # Extended euclidean algorithm to find modular inverses for
 # integers
@@ -41,7 +35,7 @@ class FQ(object):
             self.n = n.n
         else:
             self.n = n % field_modulus
-        assert isinstance(self.n, (int, long))
+        assert isinstance(self.n, int)
 
     def __add__(self, other):
         on = other.n if isinstance(other, FQ) else other
@@ -67,7 +61,7 @@ class FQ(object):
 
     def __div__(self, other):
         on = other.n if isinstance(other, FQ) else other
-        assert isinstance(on, (int, long))
+        assert isinstance(on, int)
         return FQ(self.n * prime_field_inv(on, field_modulus) % field_modulus)
 
     def __truediv__(self, other):
@@ -75,7 +69,7 @@ class FQ(object):
 
     def __rdiv__(self, other):
         on = other.n if isinstance(other, FQ) else other
-        assert isinstance(on, (int, long)), on
+        assert isinstance(on, int), on
         return FQ(prime_field_inv(self.n, field_modulus) * on % field_modulus)
 
     def __rtruediv__(self, other):
@@ -159,7 +153,7 @@ class FQP(object):
         return self.__class__([(x - y) % field_modulus for x, y in zip(self.coeffs, other.coeffs)])
 
     def __mul__(self, other):
-        if isinstance(other, (int, long)):
+        if isinstance(other, int):
             return self.__class__([c * other % field_modulus for c in self.coeffs])
         else:
             # assert isinstance(other, self.__class__)
@@ -179,7 +173,7 @@ class FQP(object):
         return self * other
 
     def __div__(self, other):
-        if isinstance(other, (int, long)):
+        if isinstance(other, int):
             return self.__class__([c * prime_field_inv(other, field_modulus) % field_modulus for c in self.coeffs])
         else:
             assert isinstance(other, self.__class__)

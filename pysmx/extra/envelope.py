@@ -17,7 +17,6 @@
 #             ciphertext     --SM4-CBC(key, iv)--> plaintext
 #
 
-import os
 from collections import namedtuple
 
 from pysmx.SM2 import Encrypt as sm2_encrypt
@@ -25,6 +24,7 @@ from pysmx.SM2 import Decrypt as sm2_decrypt
 from pysmx.SM2 import generate_keypair as sm2_generate_keypair
 from pysmx.SM2 import KeyPair
 from pysmx.SM4 import sm4_crypt_cbc, ENCRYPT, DECRYPT
+from pysmx.common.random import random_bytes
 
 # ---------------------------------------------------------------------------
 # SM4 key / IV constants
@@ -93,11 +93,11 @@ def envelope_encrypt(
 
     # Generate SM4 key and IV if not provided
     if sm4_key is None:
-        sm4_key = os.urandom(SM4_KEY_LEN)
+        sm4_key = random_bytes(SM4_KEY_LEN)
     if len(sm4_key) != SM4_KEY_LEN:
         raise ValueError(f'SM4 key must be {SM4_KEY_LEN} bytes')
     if iv is None:
-        iv = os.urandom(SM4_IV_LEN)
+        iv = random_bytes(SM4_IV_LEN)
     if len(iv) != SM4_IV_LEN:
         raise ValueError(f'IV must be {SM4_IV_LEN} bytes')
 

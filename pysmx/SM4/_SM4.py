@@ -266,7 +266,7 @@ SM4 = Sm4
 
 
 class SM4BlockCyphers(BlockCyphers):
-    # TODO:
+    """SM4 adapter for the block_cyphers framework (ECB/CBC/CTR/...)."""
     block_size = 16
     name = 'SM4'
 

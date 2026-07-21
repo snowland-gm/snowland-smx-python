@@ -6,10 +6,10 @@
 # @Software: PyCharm
 
 
-from functools import reduce
 import secrets
 from pysmx.SM3 import KDF
 from pysmx.crypto import hashlib
+from pysmx.common.random import random_int
 from collections import namedtuple
 
 # select prime field, set elliptic curve parameters
@@ -32,29 +32,12 @@ Fp = 256
 # Fp = 192
 
 
-def modular_power(a, n, p):
-    """
-    compute a^ n % p
-    if n == 0:
-        return 1
-    elif n == 1:
-        return a % p
-    temp = a * a % p
-    if n & 1:
-        return a % p * modular_power(temp, n // 2, p) % p
-    else:
-        return (modular_power(temp, n // 2, p)) % p
-    original: https://blog.csdn.net/qq_36921652/article/details/79368299
-    """
-    return pow(a, n, p)
-
-
 def is_prime(number: (str, int), itor=10):
     if not isinstance(number, int):
         number = int(number)
     for i in range(itor):
         a = secrets.randbelow(number - 1) + 1
-        if modular_power(a, number - 1, number) != 1:
+        if pow(a, number - 1, number) != 1:
             return False
     return True
 
@@ -73,13 +56,6 @@ def get_hash(algorithm_name, message, Hexstr=0, encoding='utf-8'):
     return f.hexdigest()
 
 
-def get_random_int(upper):
-    """Return a cryptographically secure random integer in [1, upper - 1]."""
-    if upper <= 2:
-        raise ValueError('upper must be greater than 2')
-    return secrets.randbelow(upper - 1) + 1
-
-
 def get_random_str(n: int = 64):
     """Return a cryptographically secure random hex string of n digits.
 
@@ -87,7 +63,7 @@ def get_random_str(n: int = 64):
     directly usable as an SM2 private key or ephemeral value, complying with
     GM/T 0003 (random values must lie in [1, n-1]).
     """
-    return '%0{}x'.format(n) % get_random_int(sm2_N)
+    return '%0{}x'.format(n) % random_int(sm2_N)
 
 
 def _jac_double(X, Y, Z, P=sm2_P, a_3=sm2_a_3):

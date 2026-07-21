@@ -9,10 +9,10 @@
 # Based on BN (Barreto-Naehrig) curve with 256-bit security.
 #
 
-import os
 import hmac
 
 from pysmx.crypto.hashlib import new as _hash_new
+from pysmx.common.random import random_int, random_bytes
 
 # ============================================================
 # SM9 BN Curve Parameters (GM/T 0044.5-2016)
@@ -1346,16 +1346,12 @@ def _sm9_KDF(Z, klen):
 
 def _rand_int_n():
     """Generate random integer in [1, N-1]."""
-    byte_len = 32
-    while True:
-        r = int.from_bytes(os.urandom(byte_len), 'big')
-        if 1 <= r < _sm9_N:
-            return r
+    return random_int(_sm9_N)
 
 
 def _rand_bytes(n):
     """Generate n random bytes."""
-    return os.urandom(n)
+    return random_bytes(n)
 
 
 def generate_master_key():
