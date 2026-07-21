@@ -11,6 +11,11 @@
 - **SM2 点运算整数化**：`kG` 内部点运算由十六进制字符串解析/格式化改为整数元组表示，标量乘由 `bin(k)[3:]`+`reduce`+lambda 改为从 MSB 起的整型双加迭代，去除字符串解析开销；删除未使用的 `Inverse`
 - **SM9 去除冗余转换**：KDF 直接透传 bytes（去掉 hex 往返），G1/G2 标量乘改用从高位起的位迭代，去除 `bits` 列表分配；`hmac` 提到模块顶部
 
+### 文档
+
+- **API 文档新增统一随机源章节**：`doc/v1.0.1/API_DOCS.zh.md` 与 `API_DOCS.en.md` 第 7 章扩展为「公共工具」，新增 7.2 统一随机源（CSPRNG）`pysmx.common.random`（`random_bytes` / `random_int` / `random_hex`）说明，标注其为全仓库随机唯一来源
+- **数字信封导入路径简化**：第 6 章与快速参考示例补充 `from pysmx.extra import ...` 顶层导入（`pysmx.extra` 已 re-export 数字信封 API）
+
 ## v1.0.0.post1 (2026-07-13)
 
 ### Bug 修复

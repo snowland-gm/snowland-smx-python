@@ -2,7 +2,7 @@
 
 ## Overview
 
-`snowland-smx` (version 1.0.1) is a pure Python implementation of Chinese national cryptographic algorithms (GM/T standards), including SM2, SM3, SM4, SM9, and ZUC.
+`snowland-smx` (version 1.1.0) is a pure Python implementation of Chinese national cryptographic algorithms (GM/T standards), including SM2, SM3, SM4, SM9, and ZUC.
 
 Package name: `pysmx`
 
@@ -634,7 +634,7 @@ assert K_enc == K_dec
 
 ## 6. Digital Envelope (GM/T 0010-2012)
 
-`from pysmx.extra.envelope import ...`
+`from pysmx.extra.envelope import ...` or `from pysmx.extra import ...` (`pysmx.extra` now re-exports the digital envelope API at the top level, so the submodule import is no longer required)
 
 A digital envelope combines SM2 (asymmetric) and SM4-CBC (symmetric) encryption. The SM4 symmetric key is encrypted with the receiver's SM2 public key; the payload is encrypted with the SM4 key.
 
@@ -684,9 +684,13 @@ Decrypt data from a digital envelope.
 
 ---
 
-## 7. Padding Utilities
+## 7. Common Utilities
 
-`from pysmx.common import ...`
+`from pysmx.common import ...` / `from pysmx.common.random import ...`
+
+`pysmx.common` provides block cipher padding schemes and the package-wide unified cryptographically secure random source.
+
+### 7.1 Padding Utilities
 
 Block cipher padding schemes.
 
@@ -711,6 +715,35 @@ padded = padder.pad(b'hello', block_size=16)
 
 unpadder = PKCS7UnPadding()
 original = unpadder.unpad(padded)
+```
+
+### 7.2 Random Source Utilities (CSPRNG)
+
+`from pysmx.common.random import random_bytes, random_int, random_hex`
+
+This is the **single source of randomness** for the whole package. It is backed by `secrets` / `os.urandom` and its output is suitable for cryptographic material such as SM2 private keys and SM2/SM9 ephemeral values, complying with GM/T 0003 / GM/T 0009 (random values must lie in `[1, n-1]`). SM2, SM9, and the digital envelope all reuse this module to avoid scattered, unpredictable PRNG usage.
+
+#### `random_bytes(n) -> bytes`
+
+Return `n` cryptographically secure random bytes; raises `ValueError` if `n` is negative.
+
+#### `random_int(upper) -> int`
+
+Return a cryptographically secure random integer in `[1, upper - 1]`, directly usable as a scalar (private key / random value) over a prime-order group; raises `ValueError` if `upper` is not greater than 2.
+
+#### `random_hex(n) -> str`
+
+Return a lower-case hex string of `2n` digits (the hex encoding of `random_bytes(n)`).
+
+**Usage Example:**
+
+```python
+from pysmx.common.random import random_bytes, random_int, random_hex
+from pysmx.SM2 import sm2_N
+
+iv = random_bytes(16)     # 16-byte SM4-CBC IV
+k = random_int(sm2_N)     # SM2 private key / ephemeral value ([1, sm2_N-1])
+seed = random_hex(16)     # 32-char lower-case hex string
 ```
 
 ---
@@ -926,7 +959,7 @@ m = Decrypt(c, d_B, b'bob', hid=3)
 ### Digital Envelope
 
 ```python
-from pysmx.extra.envelope import envelope_seal, envelope_open
+from pysmx.extra import envelope_seal, envelope_open
 from pysmx.SM2 import generate_keypair
 
 kp = generate_keypair()

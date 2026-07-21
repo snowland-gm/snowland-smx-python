@@ -634,7 +634,7 @@ assert K_enc == K_dec
 
 ## 6. 数字信封 (GM/T 0010-2012)
 
-`from pysmx.extra.envelope import ...`
+`from pysmx.extra.envelope import ...` 或 `from pysmx.extra import ...`（`pysmx.extra` 已顶层导出数字信封 API，无需再深入子模块）
 
 数字信封结合 SM2（非对称）和 SM4-CBC（对称）加密。SM4 对称密钥用接收方 SM2 公钥加密；载荷用 SM4 密钥加密。
 
@@ -684,9 +684,13 @@ EnvelopeResult = namedtuple('EnvelopeResult',
 
 ---
 
-## 7. 填充工具
+## 7. 公共工具 (Common Utilities)
 
-`from pysmx.common import ...`
+`from pysmx.common import ...` / `from pysmx.common.random import ...`
+
+`pysmx.common` 提供分组密码填充方案以及全仓库统一的密码学安全随机源。
+
+### 7.1 填充工具
 
 分组密码填充方案。
 
@@ -711,6 +715,35 @@ padded = padder.pad(b'hello', block_size=16)
 
 unpadder = PKCS7UnPadding()
 original = unpadder.unpad(padded)
+```
+
+### 7.2 随机源工具 (CSPRNG)
+
+`from pysmx.common.random import random_bytes, random_int, random_hex`
+
+这是全仓库随机源的**唯一来源**，底层基于 `secrets` / `os.urandom`，输出可用于 SM2 私钥、SM2/SM9 临时值等密码学材料，符合 GM/T 0003 / GM/T 0009（随机值须落在 `[1, n-1]`）。SM2、SM9、数字信封均复用此模块，避免散落的不可预测 PRNG 用法。
+
+#### `random_bytes(n) -> bytes`
+
+返回 `n` 个密码学安全随机字节；`n` 为负数时抛出 `ValueError`。
+
+#### `random_int(upper) -> int`
+
+返回位于 `[1, upper - 1]` 的密码学安全随机整数，可直接作为素阶群的标量（私钥 / 临时值）；`upper` 不大于 2 时抛出 `ValueError`。
+
+#### `random_hex(n) -> str`
+
+返回 `2n` 位小写十六进制随机字符串（即 `random_bytes(n)` 的十六进制编码）。
+
+**使用示例:**
+
+```python
+from pysmx.common.random import random_bytes, random_int, random_hex
+from pysmx.SM2 import sm2_N
+
+iv = random_bytes(16)     # 16 字节 SM4-CBC IV
+k = random_int(sm2_N)     # SM2 私钥 / 加密临时值（[1, sm2_N-1]）
+seed = random_hex(16)     # 32 位小写十六进制随机串
 ```
 
 ---
@@ -926,7 +959,7 @@ m = Decrypt(c, d_B, b'bob', hid=3)
 ### 数字信封
 
 ```python
-from pysmx.extra.envelope import envelope_seal, envelope_open
+from pysmx.extra import envelope_seal, envelope_open
 from pysmx.SM2 import generate_keypair
 
 kp = generate_keypair()
