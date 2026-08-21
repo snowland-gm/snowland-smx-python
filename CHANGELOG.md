@@ -1,6 +1,8 @@
 # 更新记录
 
-## v1.0.1 (2026-07-18)
+## v1.1.0 (2026-08-21)
+
+> 本版本包含自 1.0.0.post2 以来的全部累积差异（含此前未单独发版的 1.0.1 阶段变更）。
 
 ### 性能优化
 
@@ -10,11 +12,57 @@
 - **ZUC LFSR 环形缓冲**：LFSR 由 `list.append`+`pop(0)`（每拍 O(n)）改为 `deque(maxlen=16)`，移位降为 O(1)
 - **SM2 点运算整数化**：`kG` 内部点运算由十六进制字符串解析/格式化改为整数元组表示，标量乘由 `bin(k)[3:]`+`reduce`+lambda 改为从 MSB 起的整型双加迭代，去除字符串解析开销；删除未使用的 `Inverse`
 - **SM9 去除冗余转换**：KDF 直接透传 bytes（去掉 hex 往返），G1/G2 标量乘改用从高位起的位迭代，去除 `bits` 列表分配；`hmac` 提到模块顶部
+- **密码学模块统一随机源与优化**：新增 `pysmx.common.random`（CSPRNG），SM2/SM9 复用全仓库统一随机源；收敛 `HashBackend` 注册逻辑
+
+### 新功能
+
+- **统一 SM4 高层 API**：新增 `pysmx.sm4_encrypt` / `pysmx.sm4_decrypt`（支持 ECB/CBC/CFB/OFB/PCBC，无需记忆 `ENCRYPT`/`DECRYPT` 常量），收敛此前 `CryptSM4` / `SM4` / 裸函数多套接口并存的问题
+- **性能对比基准测试工具**：新增 `scripts/benchmark.py` 与 CI 生成的 `doc/benchmark.md` 报告（pysmx vs gmssl）
+
+### 接口变化
+
+- `pysmx.SM2` 导出曲线参数 `sm2_N` / `sm2_G` 与公钥派生函数 `kG`
+- `pysmx.extra` 顶层导出数字信封 API（`envelope_seal` / `envelope_open`）
+- 版本号提升至 1.1.0
+
+### 测试
+
+- 新增 `pysmx/test/test_ecc.py`：补齐 `ecc` 模块（FQ/FQP 有限域与椭圆曲线运算）单测，填补 SM2/SM9 数学底座空白
+- 新增 `pysmx/test/test_sm4_facade.py`：覆盖 SM4 统一 facade 各模式加解密回环与非法 mode
+- 新增 `pysmx/test/test_sm2_random.py`：GB/T 32918 公钥派生向量（`kG(d)` 对齐标准 PX/PY）与私钥范围校验
+- SM9 一致性测试整合至 `pysmx/test/test_sm9.py`
+
+### 构建与依赖
+
+- 拆分依赖清单：`requirements-test.txt` / `test_requirements.txt` / `requirements-bench.txt`
+- 清理 `setup.py` 打包逻辑与 `pyproject.toml` 配置（PEP 621 元数据）
+- **移除 astartool 依赖**：`pysmx/SM2/_cryptography.py` 对 `astartool.string.force_bytes` 的导入为冗余（从未调用），已从运行时与 `test` extra 依赖中移除
 
 ### 文档
 
-- **API 文档新增统一随机源章节**：`doc/v1.0.1/API_DOCS.zh.md` 与 `API_DOCS.en.md` 第 7 章扩展为「公共工具」，新增 7.2 统一随机源（CSPRNG）`pysmx.common.random`（`random_bytes` / `random_int` / `random_hex`）说明，标注其为全仓库随机唯一来源
-- **数字信封导入路径简化**：第 6 章与快速参考示例补充 `from pysmx.extra import ...` 顶层导入（`pysmx.extra` 已 re-export 数字信封 API）
+- 重整文档版本目录：`doc/v1.0.0post1 → doc/v1.0.0`、`doc/v1.0.1 → doc/v1.1.0`
+- API 文档新增统一随机源章节（7.2 CSPRNG）
+- 新增依赖不足分析与改进计划文档（`doc/improvement_plan.md`、`doc/TODO.md`）
+
+### 杂项
+
+- 脚本迁移至 `scripts/` 目录，并同步 `.github/workflows/test.yml`、`MANIFEST.in` 与文档引用
+- 调整 `.gitignore` 忽略 demo 生成输出文件
+- 相对导入整理
+
+## v1.0.0.post2 (2026-07-18)
+
+### 安全修复
+
+- **SM2 随机数发生器升级为 CSPRNG**：修复私钥 / 临时值随机数可被预测导致的密钥泄露风险，符合 GM/T 0003 / GM/T 0009（随机值须落在 `[1, n-1]`）
+
+### 文档
+
+- 记录 SM2 随机数安全修复的改进计划（`doc/improvement_plan.md` 1.1 节）
+
+### 构建
+
+- 版本号提升至 1.0.0.post2
 
 ## v1.0.0.post1 (2026-07-13)
 

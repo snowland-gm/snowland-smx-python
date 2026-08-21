@@ -105,8 +105,9 @@
 #### 1.14 依赖管理不清晰
 - 证据：
   - `requirements.txt`：`cryptography`（运行时唯一依赖）。
-  - `test_requirements.txt`：`astartool>=0.0.2`（用途不明，疑似某 demo/test 专用）、`gmssl`
-    （benchmark 可选，却被列为 test 必装）。
+  - `test_requirements.txt`：`gmssl`（benchmark 可选基线)。`astartool` 曾是 test 依赖，
+    但 `pysmx/SM2/_cryptography.py` 对它的 `force_bytes` 导入为冗余（从未调用），已从
+    `requirements-test.txt`、`test_requirements.txt`、`pyproject.toml` 的 `[test]` extra 移除。
 - 影响：测试/基准/运行时依赖混在一起，安装面过大；`extras_require` 已定义但未充分利用。
 
 #### 1.15 CI 缺少质量门禁

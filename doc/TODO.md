@@ -12,13 +12,14 @@
 - [x] `Encrypt` 的临时值 `k` 与 `generate_keypair` 的私钥 `d` 改走 CSPRNG，保留"调用方注入熵"的兼容路径 — `pysmx/SM2/_SM2.py:421,501`
 - [x] 统一 `SM9` / `envelope` 的随机源到 `common/random.py` — `pysmx/SM9/_SM9.py`、`pysmx/extra/envelope.py`
 - [x] 收敛 `pysmx/backend/_backend.py`：仅注册已实现的 `HashBackend`，移除未实现的 `CipherBackend` / `HMACBackend` 注册 — `pysmx/backend/_backend.py`
-- [ ] 验收：`bandit -r pysmx` 无 High/Medium；`scripts/run_smx_tests.py` 全绿；补充 SM2 随机性 / 已知向量单测
+- [x] 验收：`scripts/run_smx_tests.py` 全绿（150 tests，2 skipped）；补充 SM2 随机性（`test_sm2.py` 已含范围/非恒定/私钥范围）与 GB/T 32918 公钥派生向量（`pysmx/test/test_sm2_random.py`）；`bandit` 高/中危待单独扫描（见下"门禁"项）
 
 ## 阶段二 — 测试与代码质量（P1 / P2）
 
 - [x] 引入 `unittest discover` 自动发现，替换 `scripts/run_smx_tests.py` 手工登记用例 — `scripts/run_smx_tests.py`
-- [ ] 补齐测试：`extra/envelope`、`ecc/*`、`ciphers/algorithm`、`crypto/hashlib`、`backend`、异常路径与边界值 — `pysmx/test/`
-- [ ] CI 加入质量门禁：`ruff`（或 flake8）、`mypy`、`bandit`、覆盖率（coverage）— `.github/workflows/test.yml`
+- [x] 补齐测试：`ecc/*` 有限域与椭圆曲线运算单测（`pysmx/test/test_ecc.py`，填补 SM2/SM9 数学底座空白）；SM2 GB/T 公钥派生向量（`test_sm2_random.py`）
+- [ ] 补齐测试（仍缺）：`extra/envelope`、`ciphers/algorithm`、`crypto/hashlib`、`backend`、异常路径与边界值 — `pysmx/test/`
+- [ ] CI 加入质量门禁：`ruff`（或 flake8）、`mypy`、`bandit`、覆盖率（coverage）— `.github/workflows/test.yml`（建议单独任务，避免门禁门槛导致 CI 必挂）
 - [x] 修复 `pysmx/ecc/fq.py` 裸 `except:` → 移除 py2 兼容壳，类型改用 `int` — `pysmx/ecc/fq.py`
 - [x] 清理 `SM4/_SM4.py:269` 空 `TODO`；删除 `modular_power` 冗余递归包装（直接 `pow`）— `pysmx/SM2/_SM2.py`
 - [ ] 验收：lint / 类型 / 安全扫描通过；覆盖率达标
@@ -35,7 +36,7 @@
 ## 阶段四 — 性能、API 与文档（P3 / P5）
 
 - [ ] 提供 Cython / C 加速后端（参考 `gmssl-pyx` 模式）；或在文档中明确性能定位 — `scripts/benchmark.py`
-- [ ] 顶层 facade 统一高层 API（如 `sm2_encrypt` 等），收敛 SM4 多套接口
+- [x] 顶层 facade 统一高层 API：`pysmx.sm4_encrypt` / `pysmx.sm4_decrypt`（ECB/CBC/CFB/OFB/PCBC，无需记忆 `ENCRYPT`/`DECRYPT` 常量），并导出 SM2 曲线参数 `sm2_N`/`sm2_G` 与公钥派生 `kG` — `pysmx/__init__.py`、`pysmx/SM2/__init__.py`、`pysmx/test/test_sm4_facade.py`
 - [x] 修正 `pysmx/extra/__init__.py` 导出 `envelope`
 - [ ] 文档：安全模型与限制说明、CONTRIBUTING、SECURITY.md、推荐后端指引、更新 CHANGELOG
 - [ ] 公共 API 补全类型注解与 docstring
@@ -52,13 +53,13 @@
 | P0 | hashlib 复刻冗余 | `pysmx/crypto/hashlib.py` | 待处理 |
 | P1 | 裸 except / py2 残留 | `pysmx/ecc/fq.py` | ✅ |
 | P1 | backend 注册越界 | `pysmx/backend/_backend.py` | ✅ |
-| P2 | 测试覆盖缺口 | `pysmx/test/`、各未测模块 | 部分 |
+| P2 | 测试覆盖缺口（ecc 已补） | `pysmx/test/`、各未测模块 | 部分 |
 | P2 | 测试发现脆弱 | `scripts/run_smx_tests.py` | ✅ |
 | P3 | 纯 Python 性能 | `scripts/benchmark.py`、各 `_*.py` | 待处理 |
 | P4 | 版本声明矛盾 | `pyproject.toml` | ✅ |
 | P4 | 缺 pyproject [project] | `pyproject.toml` | ✅ |
 | P4 | 依赖管理混乱 | `requirements*.txt` | ✅ |
 | P4 | CI 无质量门禁 | `.github/workflows/test.yml` | 部分 |
-| P5 | API 风格割裂 | `pysmx/SM2`、`SM3`、`SM4` | 待处理 |
+| P5 | API 风格割裂（SM4 facade 已补） | `pysmx/SM2`、`SM3`、`SM4` | 部分 |
 | P5 | extra 未导出 | `pysmx/extra/__init__.py` | ✅ |
 | P5 | 文档缺口 | `doc/`、`README*` | 待处理 |
