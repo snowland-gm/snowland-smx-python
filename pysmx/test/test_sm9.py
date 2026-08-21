@@ -100,6 +100,23 @@ class TestSM9Standard(unittest.TestCase):
             self.assertEqual(K1, K2)
             self.assertEqual(len(K1), klen)
 
+    def test_sm9_sign_verify(self):
+        # 1) Generate a signature master key pair the same way the demo does.
+        ks, _P_pub_e = generate_master_key()
+        P2 = ((_sm9_P2[0], _sm9_P2[1]), (_sm9_P2[2], _sm9_P2[3]))
+        P_pub_s = _g2_to_affine(_g2_scalar_mult(ks, P2))
+
+        # 2) Issue a user signing key and sign a message.
+        ID_A = b"2"
+        message = b"hello-sm9"
+        d_A = generate_user_sign_key(ks, ID_A, hid=0x01)
+        sig = Sign(message, d_A, P_pub_s, hid=0x01)
+
+        # 3) Verify. If this prints FAIL, pysmx itself is broken here.
+        ok = Verify(message, sig, ID_A, P_pub_s, hid=0x01)
+        print("SM9 sign/verify:", "OK" if ok else "FAIL")
+        self.assertTrue(ok)
+
 
 if __name__ == '__main__':
     unittest.main()

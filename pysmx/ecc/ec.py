@@ -10,7 +10,7 @@
 
 from pysmx.ecc.fq import FQ2, FQ12, field_modulus, FQ
 from functools import reduce
-from astartool.project import std_logging
+
 
 curve_order = 21888242871839275222246405745257275088548364400416034343698204186575808495617
 cache_map = {}
