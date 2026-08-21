@@ -1,3 +1,2 @@
-astartool>=0.0.2
-# Optional baseline for scripts/benchmark.py (pysmx vs gmssl comparison)
+# Test dependencies for CI / local testing (gmssl used as benchmark baseline)
 gmssl

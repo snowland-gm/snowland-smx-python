@@ -6,7 +6,6 @@
 # @Software: PyCharm
 
 
-from astartool.string import force_bytes
 from pysmx.crypto import hashlib
 
 import six

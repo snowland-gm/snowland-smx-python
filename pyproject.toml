@@ -28,7 +28,7 @@ classifiers = [
 dependencies = ["cryptography"]
 
 [project.optional-dependencies]
-test = ["astartool>=0.0.2", "gmssl"]
+test = ["gmssl"]
 bench = ["gmssl", "gmssl-pyx"]
 
 [project.urls]
