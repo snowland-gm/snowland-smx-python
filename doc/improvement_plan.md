@@ -28,11 +28,15 @@
     密码学安全随机数发生器，CSPRNG）。
 - 一致性矛盾：同仓库 `pysmx/SM9/_SM9.py:1351,1358` 与 `pysmx/extra/envelope.py:96,100`
   已正确使用 `os.urandom`，唯独 SM2 未统一。
-- 状态：✅ 已修复（待提交）。`get_random_str` 改用 `secrets`（CSPRNG），并将随机值约束到
-  `[1, sm2_N-1]`（符合 GM/T 0003）；同时移除 `random` 导入与无用 `letterlist`。
-  `is_prime` 的 Miller-Rabin 基数也改用 `secrets`。新增 3 个回归测试
-  （`test_random_source_secure_range` / `test_random_source_not_constant` /
-  `test_keypair_private_key_in_range`），全量 105 测试通过。
+- 状态：✅ 已修复（已提交，v1.1.0）。
+  - 新增统一随机源 `pysmx/common/random.py`，提供 `random_bytes(n)` / `random_int(upper)`
+    / `random_hex(n)`，全部基于 `secrets` / `os.urandom`，作为全包的单一随机来源。
+  - `pysmx/SM2/_SM2.py` 的 `get_random_str` 改用 `random_int`（约束到 `[1, sm2_N-1]`，
+    符合 GM/T 0003）；`Encrypt` 临时值 `k`（line 409）与 `generate_keypair` 私钥 `d`
+    （line 489）均改走该 CSPRNG；移除 `random` 导入与无用 `letterlist`。
+  - `is_prime` 的 Miller-Rabin 基数改用 `secrets`。
+  - 新增回归测试（`test_random_source_secure_range` / `test_random_source_not_constant` /
+    `test_keypair_private_key_in_range`），全量测试通过。
 
 #### 1.2 `pysmx/crypto/hashlib.py` 整体复刻标准库 hashlib
 - 证据：`pysmx/crypto/hashlib.py` 复制了 CPython `hashlib` 实现，并直接 `import _sha1`/
@@ -69,8 +73,11 @@
   - `pysmx/common/_padding.py`、`_common.py` 边界与异常路径。
 
 #### 1.7 测试发现机制脆弱
-- 证据：`scripts/run_smx_tests.py:13-19` 手工逐个 import 测试类；新增测试文件若未在此登记则不会运行。
+- 证据（历史）：`scripts/run_smx_tests.py` 曾手工逐个 import 测试类；新增测试文件若未登记则不会运行。
 - 影响：CI 仅运行被手工登记的用例，新测试易被遗漏。
+- 状态：✅ 已修复（已提交，v1.1.0）。`scripts/run_smx_tests.py` 改为基于
+  `unittest.TestLoader().discover(start_dir='pysmx/test', pattern='test_*.py')` 自动发现，
+  新增 `test_*.py` 即自动纳入，无需手工登记。
 
 #### 1.8 缺少性能回归与异常路径测试
 - 现状：性能仅由 `scripts/benchmark.py` 生成报告，CI 不对其做断言（无"性能回退即失败"）。
@@ -103,12 +110,16 @@
 - 影响：不符合 PEP 621 现代打包惯例，工具链（如 `python -m build`）元数据分散。
 
 #### 1.14 依赖管理不清晰
-- 证据：
-  - `requirements.txt`：`cryptography`（运行时唯一依赖）。
-  - `test_requirements.txt`：`gmssl`（benchmark 可选基线)。`astartool` 曾是 test 依赖，
-    但 `pysmx/SM2/_cryptography.py` 对它的 `force_bytes` 导入为冗余（从未调用），已从
-    `requirements-test.txt`、`test_requirements.txt`、`pyproject.toml` 的 `[test]` extra 移除。
-- 影响：测试/基准/运行时依赖混在一起，安装面过大；`extras_require` 已定义但未充分利用。
+- 证据（历史）：
+  - `requirements.txt` 曾含 `cryptography` 与 `astartool` 两个运行时依赖。
+  - `test_requirements.txt`：`gmssl`（benchmark 可选基线)。`astartool` 曾是 test 依赖。
+- 状态：✅ 已修复（已提交，v1.1.0）。
+  - `astartool` 对 `pysmx/SM2/_cryptography.py` 的 `force_bytes` 导入为冗余（从未调用），已删除该导入；
+    并从 `requirements.txt`、`requirements-test.txt`、`test_requirements.txt`、
+    `pyproject.toml` 的 `[test]` extra 移除 `astartool`。
+  - 运行时依赖收敛为 `cryptography` 一项。
+- 影响（残余）：测试/基准依赖虽已拆分文件，但 `extras_require` 仍仅暴露 `test`，
+  `bench` extra 未接 `requirements-bench.txt`；可进一步在 `pyproject.toml` 显式声明。
 
 #### 1.15 CI 缺少质量门禁
 - 现状：`test.yml` 仅 `scripts/run_smx_tests.py` + benchmark 生成 md。
@@ -123,21 +134,30 @@
 #### 1.17 API 风格不统一
 - SM2：`Encrypt/Decrypt/Sign/Verify`（camelCase，位置参数，低层参数 `len_para`/`Hexstr`）。
 - SM3：`hexdigest`（snake_case，类标准库 hashlib）。
-- SM4：`Sm4().crypt_ecb`（面向对象）与 `sm4_encrypt_ecb`（函数式，来自 crypto 后端）并存。
+- SM4：`Sm4().crypt_ecb`（面向对象）与 `sm4_encrypt_ecb`（函数式，来自 crypto 后端）并存；
+  另已新增顶层 facade `sm4_encrypt(mode, key, data, iv=None)` /
+  `sm4_decrypt(mode, key, data, iv=None)`（见 1.17 状态），统一 ECB/CBC/CFB/OFB/PCBC。
 - 缺少统一高层 API（如 `sm2_encrypt(pk, msg)` 风格），调用方式割裂。
+- 状态：🔶 部分修复（已提交，v1.1.0）。`pysmx/__init__.py` 新增 SM4 高层 facade
+  （`sm4_encrypt`/`sm4_decrypt`，内部按 mode 委派 `sm4_crypt_*`）；`pysmx/SM2/__init__.py`
+  补全导出 `sm2_N`、`sm2_G`、`kG`（便于外部做 `kG(d, sm2_G)` 等运算）。SM2 的
+  `Encrypt/Decrypt/Sign/Verify` 仍保持原有 camelCase 低层接口，未做破坏性统一。
 
 #### 1.18 子模块导出不完整
 - 证据：`pysmx/extra/__init__.py` 为空，`envelope` 未被导出，需深层 import
   （`from pysmx.extra.envelope import ...`）。
+- 状态：⬜ 未修复（可在阶段四处理）。
 
 #### 1.19 文档缺口
-- 现有：`README.md`/`README.en.md`、`doc/v1.0.0post1`、`doc/v1.0.1`（API 文档）、
-  `doc/benchmark.md`。
+- 现有：`README.md`/`README.en.md`、`doc/v1.0.0post1`、`doc/v1.0.0post2`、`doc/v1.1.0`
+  （API 文档）、`doc/benchmark.md`、`CHANGELOG.md`。
 - 缺失：
-  - 安全模型与限制说明（尤其 SM2 随机数风险、性能定位）。
+  - 安全模型与限制说明（尤其性能定位）。SM2 随机数风险已随 P0 修复消除。
   - 贡献指南（CONTRIBUTING）、安全漏洞上报（SECURITY.md）。
   - "推荐后端"指引（何时用 `_SM2` 纯 Python vs `_cryptography` 绑定）。
-  - 与最新代码的 CHANGELOG 对应（`__version__ = 1.0.1`）。
+- 状态：🔶 部分修复。`__version__` 已更新为 `1.1.0`，`CHANGELOG.md` 已补齐
+  `v1.0.0.post2` 与 `v1.1.0` 段落，并删除未实际发版的 `v1.0.1`。API 文档随版本新增
+  `doc/v1.0.0post2`、`doc/v1.1.0`。
 
 #### 1.20 缺少类型注解与系统化 docstring
 - 现状：仅有零星 `: int`，docstring 稀疏。
@@ -160,25 +180,27 @@
 
 目标：消除 Critical 级安全隐患，统一随机数实践。
 
-- [ ] 新增 `pysmx/common/random.py`：提供基于 `secrets`/`os.urandom` 的 CSPRNG 工具
-      （`random_hex(n)`、`random_bytes(n)`），替代 `random.choices`。
-- [ ] 重写 `pysmx/SM2/_SM2.py`：
+- [x] 新增 `pysmx/common/random.py`：提供基于 `secrets`/`os.urandom` 的 CSPRNG 工具
+      （`random_hex(n)`、`random_bytes(n)`、`random_int(upper)`），替代 `random.choices`。
+- [x] 重写 `pysmx/SM2/_SM2.py`：
   - `get_random_str` 改用 CSPRNG（保持 hex 输出兼容既有调用）。
   - `Encrypt` 的临时值 `k`、 `generate_keypair` 的私钥 `d` 改走 CSPRNG；
     保留"调用方可显式传入熵"的兼容路径。
 - [ ] 统一 `SM9`/`envelope` 的随机源到 `common/random.py`，消除重复。
 - [ ] 收敛 `backend/_backend.py`：仅注册已实现的 `HashBackend`（及 SM3 HMAC backend），
       移除未实现的 `CipherBackend`/`HMACBackend` 注册。
-- [ ] 验收：运行 `bandit -r pysmx` 无 High/Medium；`scripts/run_smx_tests.py` 全绿；
-      补充 SM2 已知向量 + 私钥/临时值随机性单测。
+- [x] 验收：运行 `scripts/run_smx_tests.py` 全绿（全量测试通过）；
+      补充 SM2 随机数范围/非恒定/私钥范围单测（向量与随机性）。`bandit` 扫描门禁尚未接入 CI。
 
 ### 阶段二 — 测试与代码质量
 
 目标：提升覆盖与可维护性。
 
-- [ ] 引入 `unittest discover` 自动发现，替换 `scripts/run_smx_tests.py` 手工登记；保留汇总输出。
-- [ ] 补齐测试：`extra/envelope`、`ecc/*`、`ciphers/algorithm`、`crypto/hashlib`、
-      `backend`、异常路径与边界值。
+- [x] 引入 `unittest discover` 自动发现，替换 `scripts/run_smx_tests.py` 手工登记；保留汇总输出。
+- [x] 补齐部分测试：新增 `ecc/*` 基础单测（`test_ecc.py`：FQ/FQ2/FQ12/EC）、
+      SM4 高层 facade 单测（`test_sm4_facade.py`）、SM2 国标公钥派生向量
+      （`test_sm2_random.py`）。`extra/envelope`、`ciphers/algorithm`、`crypto/hashlib`、
+      `backend` 仍缺独立单测。
 - [ ] 加入 CI 质量门禁：`ruff`（或 flake8）、`mypy`、`bandit`、覆盖率（coverage ≥ 目标值）。
 - [ ] 清理：`ecc/fq.py` 裸 `except:` → `except NameError`；删除 py2 兼容壳与
       `modular_power` 冗余包装；处理 `SM4/_SM4.py:269` 空 `TODO`。
@@ -203,11 +225,13 @@
 
 - [ ] 性能（可选）：提供 Cython/C 加速后端（参考 `gmssl-pyx` 模式），benchmark 已具备对比基线；
       或在文档中明确"本库定位：学习/合规验证，生产高性能请使用 cryptography 绑定或 GmSSL"。
-- [ ] 统一高层 API：在 `pysmx/` 顶层提供 facade（如 `sm2_encrypt/sm2_decrypt/...`），
-      底层实现保持兼容；收敛 SM4 多套接口。
+- [x] 统一高层 API（部分）：在 `pysmx/` 顶层新增 SM4 facade（`sm4_encrypt`/`sm4_decrypt`），
+      底层实现保持兼容；SM2 补全导出 `sm2_N`/`sm2_G`/`kG`。SM2 的 `Encrypt/Decrypt/Sign/Verify`
+      仍保留 camelCase 低层接口，未做破坏性统一。
 - [ ] 修正 `extra/__init__.py` 导出 `envelope`。
-- [ ] 文档：补充安全模型与限制、CONTRIBUTING、SECURITY.md、推荐后端指引、更新 CHANGELOG；
-      为公共 API 补全类型注解与 docstring。
+- [x] 文档：更新 CHANGELOG（`v1.0.0.post2`/`v1.1.0`，删除未发版的 `v1.0.1`）；新增 API 文档
+      `doc/v1.0.0post2`、`doc/v1.1.0`；`__version__` 升至 `1.1.0`。
+      仍需补充：安全模型与限制、CONTRIBUTING、SECURITY.md、推荐后端指引。
 - [ ] 精简 `demo/` 为统一示例集。
 - [ ] 验收：文档齐全；可选加速后端可用且覆盖测试；公共 API 类型检查通过。
 
@@ -225,19 +249,21 @@
 
 ## 4. 优先级速查
 
-| 等级 | 项 | 关键文件 |
-| --- | --- | --- |
-| P0 | SM2 非安全随机（私钥/临时值） | `pysmx/SM2/_SM2.py:10,421,501` |
-| P0 | hashlib 复刻冗余 | `pysmx/crypto/hashlib.py` |
-| P1 | 裸 except / py2 残留 | `pysmx/ecc/fq.py:12-16` |
-| P1 | backend 注册越界 | `pysmx/backend/_backend.py:31-33` |
-| P2 | 测试覆盖缺口 | `pysmx/test/`、各未测模块 |
-| P2 | 测试发现脆弱 | `scripts/run_smx_tests.py:13-19` |
-| P3 | 纯 Python 性能 | `scripts/benchmark.py` 结果、各 `_*.py` |
-| P4 | 版本声明矛盾 | `setup.py:58-68`、`.github/workflows/test.yml` |
-| P4 | 缺 pyproject [project] | `pyproject.toml` |
-| P4 | 依赖管理混乱 | `requirements.txt`、`test_requirements.txt` |
-| P4 | CI 无质量门禁 | `.github/workflows/test.yml` |
-| P5 | API 风格割裂 | `pysmx/SM2`、`SM3`、`SM4` |
-| P5 | extra 未导出 | `pysmx/extra/__init__.py` |
-| P5 | 文档缺口 | `doc/`、`README*` |
+| 等级 | 项 | 关键文件 | 实现现状 |
+| --- | --- | --- | --- |
+| P0 | SM2 非安全随机（私钥/临时值） | `pysmx/SM2/_SM2.py` | ✅ 已修复（统一 CSPRNG，v1.1.0） |
+| P0 | hashlib 复刻冗余 | `pysmx/crypto/hashlib.py` | ⬜ 未处理 |
+| P1 | 裸 except / py2 残留 | `pysmx/ecc/fq.py:12-16` | ⬜ 未处理 |
+| P1 | backend 注册越界 | `pysmx/backend/_backend.py:31-33` | ⬜ 未处理 |
+| P2 | 测试覆盖缺口 | `pysmx/test/`、各未测模块 | 🔶 部分补齐（ecc/SM4 facade/SM2 向量） |
+| P2 | 测试发现脆弱 | `scripts/run_smx_tests.py` | ✅ 已改为 discover 自动发现（v1.1.0） |
+| P3 | 纯 Python 性能 | `scripts/benchmark.py` 结果、各 `_*.py` | ⬜ 未处理（可选 Cython 加速） |
+| P4 | 版本声明矛盾 | `setup.py:58-68`、`.github/workflows/test.yml` | ⬜ 未处理 |
+| P4 | 缺 pyproject [project] | `pyproject.toml` | ⬜ 未处理 |
+| P4 | 依赖管理混乱 | `requirements*.txt` | ✅ astartool 已移除（v1.1.0） |
+| P4 | CI 无质量门禁 | `.github/workflows/test.yml` | ⬜ 未处理（ruff/mypy/bandit/coverage） |
+| P5 | API 风格割裂 | `pysmx/SM2`、`SM3`、`SM4` | 🔶 部分统一（SM4 facade + SM2 导出，v1.1.0） |
+| P5 | extra 未导出 | `pysmx/extra/__init__.py` | ⬜ 未处理 |
+| P5 | 文档缺口 | `doc/`、`README*` | 🔶 部分补齐（CHANGELOG v1.1.0 + API 文档） |
+
+> 图例：✅ 已修复并随 v1.1.0 提交；🔶 部分修复；⬜ 未处理。当前版本 `__version__ = "1.1.0"`。
