@@ -33,41 +33,63 @@ print(kp.publicKey)   # bytes
 print(kp.privateKey)  # bytes
 ```
 
-### 1.2 `Sign(E, DA, K, len_para=64, Hexstr=0, encoding='utf-8') -> bytes`
+### 1.2 `Sign(E, DA, K, len_para=64, Hexstr=0, encoding='utf-8', uid=None) -> bytes`
 
 Sign a message using SM2.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `E` | `str` / `bytes` | — | Message or its hash. If it is a hex string, set `Hexstr=1` |
+| `E` | `str` / `bytes` | — | Message or its hash. If it is a hex string, set `Hexstr=1`; when `uid` is given, `E` is treated as the raw message `M` |
 | `DA` | `str` / `bytes` | — | Private key (hex string or bytes) |
 | `K` | `str` | — | Random number (hex string) |
 | `len_para` | `int` | `64` | Fixed value, length parameter |
 | `Hexstr` | `int` | `0` | `1` if `E` is a hex string, `0` otherwise |
 | `encoding` | `str` | `'utf-8'` | Character encoding when `E` is `str` and `Hexstr=0` |
+| `uid` | `str` / `bytes` | `None` | User distinguished identity IDA. When given, the digest is computed as GM/T 0003 `e = SM3(ZA || M)`, where `ZA = SM3(ENTL || IDA || a || b || xG || yG || xA || yA)` is derived from `uid` and the public key `PA`; `None` keeps the original digest-signing behavior for backward compatibility |
 
 | Return | Type | Description |
 |--------|------|-------------|
 | Signature | `bytes` or `None` | Format: `r || s`; returns `None` on failure |
 
-### 1.3 `Verify(Sign, E, PA, len_para=64, Hexstr=0, encoding='utf-8') -> bool`
+### 1.3 `Verify(Sign, E, PA, len_para=64, Hexstr=0, encoding='utf-8', uid=None) -> bool`
 
 Verify a SM2 signature.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `Sign` | `str` / `bytes` | — | Signature in `r || s` format |
-| `E` | `str` / `bytes` | — | Message to verify |
+| `E` | `str` / `bytes` | — | Message to verify; when `uid` is given, `E` is treated as the raw message `M` |
 | `PA` | `str` / `bytes` | — | Public key |
 | `len_para` | `int` | `64` | Fixed value |
 | `Hexstr` | `int` | `0` | `1` if `E` is a hex string |
 | `encoding` | `str` | `'utf-8'` | Encoding when `E` is `str` and `Hexstr=0` |
+| `uid` | `str` / `bytes` | `None` | User identity IDA, must match the `uid` used when signing; when given, verification is performed against `e = SM3(ZA || M)` with `ZA` derived from `uid` and `PA` |
 
 | Return | Type | Description |
 |--------|------|-------------|
 | Result | `bool` | `True` if valid, `False` otherwise |
 
-### 1.4 `Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3') -> bytes`
+### 1.4 `get_za(uid, PA, len_para=64) -> str`
+
+Compute the user identity hash `ZA` per GM/T 0003, for use by `Sign` / `Verify` in `uid` mode:
+
+`ZA = SM3(ENTL || IDA || a || b || xG || yG || xA || yA)`
+
+where `ENTL` / `IDA` come from `uid`, `a` / `b` / `xG` / `yG` are the SM2 curve parameters, and `xA` / `yA` come from the public key `PA`. Returns a 64-character hex string.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `uid` | `str` / `bytes` | — | User identity IDA (e.g. `'1234567812345678'`); encoded as UTF-8 when given as `str` |
+| `PA` | `str` / `bytes` | — | Signer public key (hex string or bytes); when `str`, must be an even-length hex string |
+| `len_para` | `int` | `64` | Public key hex length parameter |
+
+| Return | Type | Description |
+|--------|------|-------------|
+| `ZA` | `str` | 64-character hex string |
+
+> This function is exported from `pysmx.SM2`; use `from pysmx.SM2 import get_za`.
+
+### 1.5 `Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3') -> bytes`
 
 Encrypt a message using SM2.
 
@@ -84,7 +106,7 @@ Encrypt a message using SM2.
 |--------|------|-------------|
 | Ciphertext | `bytes` or `None` | Format: `C1 || C3 || C2`; returns `None` on failure |
 
-### 1.5 `Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3') -> bytes`
+### 1.6 `Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3') -> bytes`
 
 Decrypt a SM2 ciphertext.
 
@@ -101,7 +123,7 @@ Decrypt a SM2 ciphertext.
 |--------|------|-------------|
 | Plaintext | `bytes` or `None` | Returns `None` if integrity check fails |
 
-### 1.6 `SM2` Class
+### 1.7 `SM2` Class
 
 A higher-level class inheriting from `ECCAlgorithm`.
 
@@ -773,6 +795,14 @@ c = sk.encrypt_sm2(b'hello')
 m = sk.decrypt_sm2(c)
 ```
 
+The `uid` argument of `SM2EllipticCurvePrivateKey.sign(data, signature_algorithm, uid=None)` and `SM2EllipticCurvePublicKey.verify(signature, data, signature_algorithm, uid=None)` behaves as in sections 1.2 / 1.3 above: `uid=None` signs the digest of `data` (original behavior); passing `uid` signs the raw message `data` as `e = SM3(ZA || M)` per GM/T 0003. Since the ZA||M structure is SM3-only, using a non-SM3 hash algorithm (e.g. SHA-256) raises `ValueError` instead of silently downgrading.
+
+```python
+# Sign and verify with a user identity
+sig = sk.sign(b'message', SM2SM3SignatureAlgorithm(), uid='1234567812345678')
+pk.verify(sig, b'message', SM2SM3SignatureAlgorithm(), uid='1234567812345678')
+```
+
 ### 8.2 SM9 Elliptic Curve
 
 ```python
@@ -850,8 +880,8 @@ h = sm3(b'hello')
 ```python
 from pysmx import VERSION, __version__
 
-print(__version__)  # "1.0.1"
-print(VERSION)      # (1, 0, 1)
+print(__version__)  # "1.1.0"
+print(VERSION)      # (1, 1, 0)
 ```
 
 ---
@@ -866,6 +896,17 @@ from pysmx.SM2 import generate_keypair, Sign, Verify
 kp = generate_keypair()
 sig = Sign("hello", kp.privateKey, '12345678abcdef', 64)
 valid = Verify(sig, "hello", kp.publicKey, 64)
+```
+
+### SM2 Sign & Verify with User ID
+
+```python
+from pysmx.SM2 import generate_keypair, Sign, Verify
+
+kp = generate_keypair()
+uid = '1234567812345678'
+sig = Sign("hello", kp.privateKey, '12345678abcdef', 64, uid=uid)
+valid = Verify(sig, "hello", kp.publicKey, 64, uid=uid)
 ```
 
 ### SM2 Encrypt & Decrypt

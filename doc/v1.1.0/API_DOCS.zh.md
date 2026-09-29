@@ -33,41 +33,63 @@ print(kp.publicKey)   # bytes
 print(kp.privateKey)  # bytes
 ```
 
-### 1.2 `Sign(E, DA, K, len_para=64, Hexstr=0, encoding='utf-8') -> bytes`
+### 1.2 `Sign(E, DA, K, len_para=64, Hexstr=0, encoding='utf-8', uid=None) -> bytes`
 
 使用 SM2 对消息签名。
 
 | 参数 | 类型 | 默认值 | 说明 |
 |-----------|------|---------|-------------|
-| `E` | `str` / `bytes` | — | 消息或其哈希值。若为十六进制字符串，需设置 `Hexstr=1` |
+| `E` | `str` / `bytes` | — | 消息或其哈希值。若为十六进制字符串，需设置 `Hexstr=1`；传入 `uid` 时 `E` 视为原始消息 `M` |
 | `DA` | `str` / `bytes` | — | 私钥（十六进制字符串或 bytes） |
 | `K` | `str` | — | 随机数（十六进制字符串） |
 | `len_para` | `int` | `64` | 固定值，长度参数 |
 | `Hexstr` | `int` | `0` | `E` 为十六进制字符串时设为 `1`，否则为 `0` |
 | `encoding` | `str` | `'utf-8'` | 当 `E` 为 `str` 且 `Hexstr=0` 时的字符编码 |
+| `uid` | `str` / `bytes` | `None` | 用户标识 IDA。传入时按 GM/T 0003 的 `e = SM3(ZA || M)` 计算摘要（其中 `ZA = SM3(ENTL || IDA || a || b || xG || yG || xA || yA)` 由 `uid` 与公钥 `PA` 导出）；`None` 时保持原有"对摘要签名"的行为，向后兼容 |
 
 | 返回值 | 类型 | 说明 |
 |--------|------|-------------|
 | 签名 | `bytes` 或 `None` | 格式: `r || s`；失败时返回 `None` |
 
-### 1.3 `Verify(Sign, E, PA, len_para=64, Hexstr=0, encoding='utf-8') -> bool`
+### 1.3 `Verify(Sign, E, PA, len_para=64, Hexstr=0, encoding='utf-8', uid=None) -> bool`
 
 验证 SM2 签名。
 
 | 参数 | 类型 | 默认值 | 说明 |
 |-----------|------|---------|-------------|
 | `Sign` | `str` / `bytes` | — | `r || s` 格式的签名 |
-| `E` | `str` / `bytes` | — | 待验证的消息 |
+| `E` | `str` / `bytes` | — | 待验证的消息；传入 `uid` 时 `E` 视为原始消息 `M` |
 | `PA` | `str` / `bytes` | — | 公钥 |
 | `len_para` | `int` | `64` | 固定值 |
 | `Hexstr` | `int` | `0` | `E` 为十六进制字符串时设为 `1` |
 | `encoding` | `str` | `'utf-8'` | 当 `E` 为 `str` 且 `Hexstr=0` 时的编码 |
+| `uid` | `str` / `bytes` | `None` | 用户标识 IDA，须与签名时使用的 `uid` 一致；传入时按 `e = SM3(ZA || M)` 验签，其中 `ZA` 由 `uid` 与公钥 `PA` 导出 |
 
 | 返回值 | 类型 | 说明 |
 |--------|------|-------------|
 | 结果 | `bool` | 有效返回 `True`，否则 `False` |
 
-### 1.4 `Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3') -> bytes`
+### 1.4 `get_za(uid, PA, len_para=64) -> str`
+
+按 GM/T 0003 计算用户标识哈希 `ZA`，供 `Sign` / `Verify` 在 `uid` 模式下使用：
+
+`ZA = SM3(ENTL || IDA || a || b || xG || yG || xA || yA)`
+
+其中 `ENTL` / `IDA` 来自 `uid`，`a` / `b` / `xG` / `yG` 为 SM2 曲线参数，`xA` / `yA` 来自公钥 `PA`。返回 64 字符十六进制字符串。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|-----------|------|---------|-------------|
+| `uid` | `str` / `bytes` | — | 用户标识 IDA（如 `'1234567812345678'`）；为 `str` 时按 UTF-8 编码 |
+| `PA` | `str` / `bytes` | — | 签名方公钥（十六进制字符串或 bytes）；为 `str` 时须为偶数长度十六进制 |
+| `len_para` | `int` | `64` | 公钥十六进制长度参数 |
+
+| 返回值 | 类型 | 说明 |
+|--------|------|-------------|
+| `ZA` | `str` | 64 字符十六进制字符串 |
+
+> 该函数在 `pysmx.SM2` 中已导出，可直接 `from pysmx.SM2 import get_za`。
+
+### 1.5 `Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3') -> bytes`
 
 使用 SM2 加密消息。
 
@@ -84,7 +106,7 @@ print(kp.privateKey)  # bytes
 |--------|------|-------------|
 | 密文 | `bytes` 或 `None` | 格式: `C1 || C3 || C2`；失败返回 `None` |
 
-### 1.5 `Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3') -> bytes`
+### 1.6 `Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3') -> bytes`
 
 解密 SM2 密文。
 
@@ -101,7 +123,7 @@ print(kp.privateKey)  # bytes
 |--------|------|-------------|
 | 明文 | `bytes` 或 `None` | 完整性校验失败时返回 `None` |
 
-### 1.6 `SM2` 类
+### 1.7 `SM2` 类
 
 继承自 `ECCAlgorithm` 的高级封装类。
 
@@ -773,6 +795,18 @@ c = sk.encrypt_sm2(b'hello')
 m = sk.decrypt_sm2(c)
 ```
 
+`SM2EllipticCurvePrivateKey.sign(data, signature_algorithm, uid=None)` 与
+`SM2EllipticCurvePublicKey.verify(signature, data, signature_algorithm, uid=None)`
+的 `uid` 行为与上文 1.2 / 1.3 一致：`uid=None` 时对 `data` 的摘要签名（保持原行为）；
+传入 `uid` 时按 GM/T 0003 的 `e = SM3(ZA || M)` 对原始消息 `data` 签名。ZA||M 结构仅
+基于 SM3，因此使用非 SM3 杂凑算法（如 SHA-256）时会抛出 `ValueError`，而非静默降级。
+
+```python
+# 带用户标识的签名与验签
+sig = sk.sign(b'message', SM2SM3SignatureAlgorithm(), uid='1234567812345678')
+pk.verify(sig, b'message', SM2SM3SignatureAlgorithm(), uid='1234567812345678')
+```
+
 ### 8.2 SM9 椭圆曲线
 
 ```python
@@ -850,8 +884,8 @@ h = sm3(b'hello')
 ```python
 from pysmx import VERSION, __version__
 
-print(__version__)  # "1.0.1"
-print(VERSION)      # (1, 0, 1)
+print(__version__)  # "1.1.0"
+print(VERSION)      # (1, 1, 0)
 ```
 
 ---
@@ -866,6 +900,17 @@ from pysmx.SM2 import generate_keypair, Sign, Verify
 kp = generate_keypair()
 sig = Sign("hello", kp.privateKey, '12345678abcdef', 64)
 valid = Verify(sig, "hello", kp.publicKey, 64)
+```
+
+### SM2 带用户标识的签名与验签
+
+```python
+from pysmx.SM2 import generate_keypair, Sign, Verify
+
+kp = generate_keypair()
+uid = '1234567812345678'
+sig = Sign("hello", kp.privateKey, '12345678abcdef', 64, uid=uid)
+valid = Verify(sig, "hello", kp.publicKey, 64, uid=uid)
 ```
 
 ### SM2 加密与解密

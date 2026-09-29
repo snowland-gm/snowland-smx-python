@@ -2,7 +2,7 @@
 
 ## v1.1.0 (2026-08-21)
 
-> 本版本包含自 1.0.0.post2 以来的全部累积差异（含此前未单独发版的 1.0.1 阶段变更）。
+> 本版本包含自 1.0.0.post2 以来的全部累积差异。
 
 ### 性能优化
 
@@ -16,12 +16,20 @@
 
 ### 新功能
 
+- **SM2 用户标识（UID）签名支持**：`Sign` / `Verify` 新增 `uid` 参数。传入 `uid` 时按 GM/T 0003 的 `e = SM3(ZA || M)` 结构计算摘要，其中 `ZA = SM3(ENTL || IDA || a || b || xG || yG || xA || yA)` 由用户标识与签名方公钥导出；`uid` 缺省时保持原有行为（`E` 直接作为摘要），向后兼容。新增 `get_za(uid, PA, len_para)` 公开函数，便于外部独立计算 `ZA`。
+- 新增 `pysmx/test/test_sm2_uid.py`：覆盖 `ZA` 已知答案、与 GmSSL 参考实现的签名/验签互操作、uid 差异、错误 uid/公钥/篡改消息等负向用例（GB/T 32918 标准向量，固定 `k` 可复现）。
 - **统一 SM4 高层 API**：新增 `pysmx.sm4_encrypt` / `pysmx.sm4_decrypt`（支持 ECB/CBC/CFB/OFB/PCBC，无需记忆 `ENCRYPT`/`DECRYPT` 常量），收敛此前 `CryptSM4` / `SM4` / 裸函数多套接口并存的问题
 - **性能对比基准测试工具**：新增 `scripts/benchmark.py` 与 CI 生成的 `doc/benchmark.md` 报告（pysmx vs gmssl）
 
 ### 接口变化
 
 - `pysmx.SM2` 导出曲线参数 `sm2_N` / `sm2_G` 与公钥派生函数 `kG`
+- `pysmx.SM2` 新增导出 `get_za`（用户标识哈希计算）
+- `SM2EllipticCurvePrivateKey.sign(data, signature_algorithm, uid=None)` 与
+  `SM2EllipticCurvePublicKey.verify(signature, data, signature_algorithm, uid=None)`
+  同步支持 `uid`：`uid` 缺省时对 data 的摘要签名（保持原行为），传入 `uid` 时对原始消息
+  M 按 `e = SM3(ZA || M)` 签名。GM/T 0003 的 ZA||M 结构仅基于 SM3，故传入非 SM3
+  杂凑算法时会抛出 `ValueError`，而非静默降级
 - `pysmx.extra` 顶层导出数字信封 API（`envelope_seal` / `envelope_open`）
 - 版本号提升至 1.1.0
 
