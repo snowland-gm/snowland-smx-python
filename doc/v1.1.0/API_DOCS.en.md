@@ -33,7 +33,7 @@ print(kp.publicKey)   # bytes
 print(kp.privateKey)  # bytes
 ```
 
-### 1.2 `Sign(E, DA, K, len_para=64, Hexstr=0, encoding='utf-8', uid=None) -> bytes`
+### 1.2 `Sign(E, DA, K, len_para, Hexstr=0, encoding='utf-8', uid=None) -> bytes`
 
 Sign a message using SM2.
 
@@ -42,7 +42,7 @@ Sign a message using SM2.
 | `E` | `str` / `bytes` | — | Message or its hash. If it is a hex string, set `Hexstr=1`; when `uid` is given, `E` is treated as the raw message `M` |
 | `DA` | `str` / `bytes` | — | Private key (hex string or bytes) |
 | `K` | `str` | — | Random number (hex string) |
-| `len_para` | `int` | `64` | Fixed value, length parameter |
+| `len_para` | `int` | `—` | Length parameter (required, fixed at 64) |
 | `Hexstr` | `int` | `0` | `1` if `E` is a hex string, `0` otherwise |
 | `encoding` | `str` | `'utf-8'` | Character encoding when `E` is `str` and `Hexstr=0` |
 | `uid` | `str` / `bytes` | `None` | User distinguished identity IDA. When given, the digest is computed as GM/T 0003 `e = SM3(ZA || M)`, where `ZA = SM3(ENTL || IDA || a || b || xG || yG || xA || yA)` is derived from `uid` and the public key `PA`; `None` keeps the original digest-signing behavior for backward compatibility |
@@ -51,7 +51,7 @@ Sign a message using SM2.
 |--------|------|-------------|
 | Signature | `bytes` or `None` | Format: `r || s`; returns `None` on failure |
 
-### 1.3 `Verify(Sign, E, PA, len_para=64, Hexstr=0, encoding='utf-8', uid=None) -> bool`
+### 1.3 `Verify(Sign, E, PA, len_para, Hexstr=0, encoding='utf-8', uid=None) -> bool`
 
 Verify a SM2 signature.
 
@@ -60,7 +60,7 @@ Verify a SM2 signature.
 | `Sign` | `str` / `bytes` | — | Signature in `r || s` format |
 | `E` | `str` / `bytes` | — | Message to verify; when `uid` is given, `E` is treated as the raw message `M` |
 | `PA` | `str` / `bytes` | — | Public key |
-| `len_para` | `int` | `64` | Fixed value |
+| `len_para` | `int` | `—` | Length parameter (required, fixed at 64) |
 | `Hexstr` | `int` | `0` | `1` if `E` is a hex string |
 | `encoding` | `str` | `'utf-8'` | Encoding when `E` is `str` and `Hexstr=0` |
 | `uid` | `str` / `bytes` | `None` | User identity IDA, must match the `uid` used when signing; when given, verification is performed against `e = SM3(ZA || M)` with `ZA` derived from `uid` and `PA` |
@@ -89,7 +89,7 @@ where `ENTL` / `IDA` come from `uid`, `a` / `b` / `xG` / `yG` are the SM2 curve 
 
 > This function is exported from `pysmx.SM2`; use `from pysmx.SM2 import get_za`.
 
-### 1.5 `Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3') -> bytes`
+### 1.5 `Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3', mode='C1C3C2') -> bytes`
 
 Encrypt a message using SM2.
 
@@ -101,12 +101,13 @@ Encrypt a message using SM2.
 | `Hexstr` | `int` | `0` | `1` if `M` is a hex string |
 | `encoding` | `str` | `'utf-8'` | Encoding when `M` is `str` and `Hexstr=0` |
 | `hash_algorithm` | `str` | `'sm3'` | Hash algorithm name (supports all hashlib algorithms) |
+| `mode` | `str` | `'C1C3C2'` | Ciphertext point order: `'C1C3C2'` (default) or `'C1C2C3'` |
 
 | Return | Type | Description |
 |--------|------|-------------|
 | Ciphertext | `bytes` or `None` | Format: `C1 || C3 || C2`; returns `None` on failure |
 
-### 1.6 `Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3') -> bytes`
+### 1.6 `Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3', mode='C1C3C2') -> bytes`
 
 Decrypt a SM2 ciphertext.
 
@@ -118,6 +119,7 @@ Decrypt a SM2 ciphertext.
 | `Hexstr` | `int` | `0` | `1` if `C` is a hex string |
 | `encoding` | `str` | `'utf-8'` | Encoding |
 | `hash_algorithm` | `str` / `callable` | `'sm3'` | Hash algorithm (name or callable) |
+| `mode` | `str` | `'C1C3C2'` | Ciphertext point order: `'C1C3C2'` (default) or `'C1C2C3'` |
 
 | Return | Type | Description |
 |--------|------|-------------|
@@ -232,7 +234,7 @@ SM3-based Key Derivation Function.
 |--------|------|-------------|
 | Derived key | `str` | Hex string of length `klen * 2` |
 
-### 2.6 Utility Functions
+### 2.6 Utility Functions (internal)
 
 | Function | Description |
 |----------|-------------|
@@ -240,6 +242,8 @@ SM3-based Key Derivation Function.
 | `byte2str(msg, decode='utf-8')` | Convert byte list to string |
 | `hex2byte(msg)` | Convert hex string to byte list |
 | `rotate_left(a, k)` | 32-bit rotate left |
+
+> Note: these helpers are defined in `pysmx.SM3._SM3` and are **not** re-exported at the `pysmx.SM3` package level. Import them from `pysmx.SM3._SM3` if needed. |
 
 ---
 
@@ -365,7 +369,7 @@ class SM4BlockCyphers(BlockCyphers):
 
 ### 3.5 `SM4Stream` Class (Streaming Cipher)
 
-Provides `update()` / `finalize()` interface for incremental processing of large data without loading everything into memory. Supports all 5 modes.
+Provides `update()` / `finalize()` interface for incremental processing of large data without loading everything into memory. The constructor supports `method='ecb'/'cbc'/'cfb'/'ofb'/'pcbc'`. Note: padding is applied automatically by `finalize()` only for `cbc`/`pcbc`; when using `ecb`/`cfb`/`ofb` the input length must be a multiple of 16 bytes (otherwise it will fail).
 
 ```python
 class SM4Stream:
@@ -459,8 +463,8 @@ class ZUC(Iterable):
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `key` | `list[int]` | 16-byte key as list of 16 integers |
-| `iv` | `list[int]` | 16-byte IV as list of 16 integers |
+| `key` | `list[int]` / `bytes` | 16-byte key as a list of 16 integers or a `bytes` of length 16 |
+| `iv` | `list[int]` / `bytes` | 16-byte IV as a list of 16 integers or a `bytes` of length 16 |
 | `buffer_size` | `int` | Buffer size for key stream generation (default: 100) |
 
 #### Methods:
@@ -504,44 +508,46 @@ key_stream = zuc.zuc_generate_keystream()
 
 SM9 is an identity-based cryptographic (IBC) scheme using bilinear pairings on Barreto-Naehrig (BN) curves, supporting digital signature, encryption, and KEM.
 
-### 5.1 `generate_master_key() -> Tuple[bytes, bytes]`
+### 5.1 `generate_master_key() -> Tuple[int, Tuple[int, int]]`
 
-Generate the master key pair.
+Generate the master key (master private key `ke` and encryption master public key `P_pub_e`). SM9 uses the same master private key `ke` for both signing and encryption; only the master public key differs: encryption master public key `P_pub_e = [ke]P1` (G1 point), signing master public key `P_pub_s = [ke]P2` (G2 point). This function only returns the encryption master public key `P_pub_e`; the signing master public key `P_pub_s` must be computed from `ke` separately (see example in 5.10).
 
 | Return | Type | Description |
 |--------|------|-------------|
-| `(ks, P_pub_s)` | `(bytes, bytes)` | Master private key and master public key |
+| `ke` | `int` | Master private key (random) |
+| `P_pub_e` | `Tuple[int, int]` | Encryption master public key = [ke]P1, G1 affine point `(x, y)` |
 
-### 5.2 `generate_user_sign_key(ks, ID_A, hid=1) -> bytes`
+### 5.2 `generate_user_sign_key(ke, ID_A, hid=1) -> Tuple[int, int]`
 
-Derive a user's private signing key from the master key.
+Derive a user's private signing key from the master private key.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `ks` | `bytes` | — | Master private signing key |
+| `ke` | `int` | — | Master private key (the `ke` returned by `generate_master_key`) |
 | `ID_A` | `bytes` | — | User identity |
 | `hid` | `int` | `1` | Hash ID (0x01 for signing) |
 
 | Return | Type | Description |
 |--------|------|-------------|
-| `d_A` | `bytes` | User private signing key |
+| `d_A` | `Tuple[int, int]` | User private signing key, G1 affine point `(x, y)` |
 
-### 5.3 `Sign(M, d_A, P_pub_s, hid=1) -> bytes`
+### 5.3 `Sign(M, d_A, P_pub_s, hid=1, hashfunc='sm3') -> bytes`
 
 Sign a message using SM9.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `M` | `bytes` | — | Message to sign |
-| `d_A` | `bytes` | — | User private signing key |
-| `P_pub_s` | `bytes` | — | Master public signing key |
+| `d_A` | `Tuple[int, int]` | — | User private signing key (G1 point, returned by `generate_user_sign_key`) |
+| `P_pub_s` | `Tuple` | — | Signing master public key (G2 point, computed as `P_pub_s = [ke]P2`) |
 | `hid` | `int` | `1` | Hash ID |
+| `hashfunc` | `str` | `'sm3'` | Hash algorithm name (default SM3) |
 
 | Return | Type | Description |
 |--------|------|-------------|
 | Signature | `bytes` | SM9 signature |
 
-### 5.4 `Verify(M, signature, ID_A, P_pub_s, hid=1) -> bool`
+### 5.4 `Verify(M, signature, ID_A, P_pub_s, hid=1, hashfunc='sm3') -> bool`
 
 Verify an SM9 signature.
 
@@ -550,24 +556,29 @@ Verify an SM9 signature.
 | `M` | `bytes` | — | Original message |
 | `signature` | `bytes` | — | Signature to verify |
 | `ID_A` | `bytes` | — | Signer identity |
-| `P_pub_s` | `bytes` | — | Master public signing key |
+| `P_pub_s` | `Tuple` | — | Signing master public key (G2 point) |
 | `hid` | `int` | `1` | Hash ID |
+| `hashfunc` | `str` | `'sm3'` | Hash algorithm name (must match signing) |
 
 | Return | Type | Description |
 |--------|------|-------------|
 | Result | `bool` | `True` if valid |
 
-### 5.5 `generate_user_enc_key(ke, ID_B, hid=3) -> bytes`
+### 5.5 `generate_user_enc_key(ke, ID_B, hid=3) -> Tuple`
 
 Derive a user's private encryption key.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `ke` | `bytes` | — | Master private encryption key |
+| `ke` | `int` | — | Master private key (the `ke` returned by `generate_master_key`) |
 | `ID_B` | `bytes` | — | User identity |
 | `hid` | `int` | `3` | Hash ID (0x03 for encryption) |
 
-### 5.6 `Encrypt(M, ID_B, P_pub_e, hid=3) -> bytes`
+| Return | Type | Description |
+|--------|------|-------------|
+| `d_B` | `Tuple` | User private encryption key, G2 point |
+
+### 5.6 `Encrypt(M, ID_B, P_pub_e, hid=3, klen=32, hashfunc='sm3') -> bytes`
 
 Encrypt a message for an identity.
 
@@ -575,46 +586,51 @@ Encrypt a message for an identity.
 |-----------|------|---------|-------------|
 | `M` | `bytes` | — | Plaintext |
 | `ID_B` | `bytes` | — | Recipient identity |
-| `P_pub_e` | `bytes` | — | Master public encryption key |
+| `P_pub_e` | `Tuple[int, int]` | — | Encryption master public key (G1 point, returned by `generate_master_key`) |
 | `hid` | `int` | `3` | Hash ID |
+| `klen` | `int` | `32` | Derived key length in bytes |
+| `hashfunc` | `str` | `'sm3'` | Hash algorithm name |
 
-### 5.7 `Decrypt(C, d_B, ID_B, hid=3) -> bytes`
+### 5.7 `Decrypt(C, d_B, ID_B, hid=3, hashfunc='sm3') -> bytes`
 
 Decrypt an SM9 ciphertext.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `C` | `bytes` | — | Ciphertext |
-| `d_B` | `bytes` | — | User private encryption key |
+| `d_B` | `Tuple` | — | User private encryption key (G2 point, returned by `generate_user_enc_key`) |
 | `ID_B` | `bytes` | — | Recipient identity |
 | `hid` | `int` | `3` | Hash ID |
+| `hashfunc` | `str` | `'sm3'` | Hash algorithm name (must match encryption) |
 
-### 5.8 `KEM_Encapsulate(ID_B, P_pub_e, klen, hid=2) -> Tuple[bytes, bytes]`
+### 5.8 `KEM_Encapsulate(ID_B, P_pub_e, klen, hid=2, hashfunc='sm3') -> Tuple[bytes, bytes]`
 
 SM9 key encapsulation mechanism — encapsulate a shared secret.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `ID_B` | `bytes` | Recipient identity |
-| `P_pub_e` | `bytes` | Master public encryption key |
+| `P_pub_e` | `Tuple[int, int]` | Encryption master public key (G1 point) |
 | `klen` | `int` | Desired key length in bytes |
 | `hid` | `int` | Hash ID (default: `2`) |
+| `hashfunc` | `str` | Hash algorithm name (default: `'sm3'`) |
 
 | Return | Type | Description |
 |--------|------|-------------|
 | `(K, C)` | `(bytes, bytes)` | Shared secret and ciphertext |
 
-### 5.9 `KEM_Decapsulate(C1, d_B, ID_B, klen, hid=2) -> bytes`
+### 5.9 `KEM_Decapsulate(C1, d_B, ID_B, klen, hid=2, hashfunc='sm3') -> bytes`
 
 SM9 key encapsulation mechanism — decapsulate a shared secret.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `C1` | `bytes` | Ciphertext from encapsulation |
-| `d_B` | `bytes` | User private encryption key |
+| `d_B` | `Tuple` | User private encryption key (G2 point) |
 | `ID_B` | `bytes` | Recipient identity |
 | `klen` | `int` | Desired key length in bytes |
 | `hid` | `int` | Hash ID |
+| `hashfunc` | `str` | Hash algorithm name (must match encapsulation, default `'sm3'`) |
 
 ### 5.10 Utility Functions
 
@@ -633,18 +649,25 @@ from pysmx.SM9 import (
     generate_user_enc_key,
     KEM_Encapsulate, KEM_Decapsulate,
 )
+# Internal helpers needed to compute the signing master public key (P_pub_s = [ke]P2)
+from pysmx.SM9._SM9 import _g2_scalar_mult, _g2_to_affine, _sm9_P2
+
+# Master private key ke and encryption master public key P_pub_e
+# (signing and encryption share the same master private key ke)
+ke, P_pub_e = generate_master_key()
+# Signing master public key P_pub_s = [ke]P2 (G2 point), computed separately
+P_pub_s = _g2_to_affine(_g2_scalar_mult(ke, _sm9_P2))
 
 # Signature
-ks, P_pub_s = generate_master_key()
-d_A = generate_user_sign_key(ks, b'alice', hid=1)
+d_A = generate_user_sign_key(ke, b'alice', hid=1)
 sig = Sign(b'hello', d_A, P_pub_s, hid=1)
 assert Verify(b'hello', sig, b'alice', P_pub_s, hid=1)
 
 # Encryption
-ke, P_pub_e = generate_master_key()
 d_B = generate_user_enc_key(ke, b'bob', hid=3)
 c = Encrypt(b'secret', b'bob', P_pub_e, hid=3)
 m = Decrypt(c, d_B, b'bob', hid=3)
+assert m == b'secret'
 
 # KEM
 K_enc, C = KEM_Encapsulate(b'bob', P_pub_e, 32, hid=2)
@@ -674,7 +697,7 @@ EnvelopeResult = namedtuple('EnvelopeResult',
 | `ciphertext` | `bytes` | SM4-CBC ciphertext |
 | `sm2_keypair` | `KeyPair` | SM2 key pair used (may be auto-generated) |
 
-### 6.2 `envelope_encrypt(plaintext, *, public_key=None, sm2_keypair=None, sm4_key=None, iv=None) -> EnvelopeResult`
+### 6.2 `envelope_encrypt(plaintext, public_key=None, sm2_keypair=None, sm4_key=None, iv=None) -> EnvelopeResult`
 
 Encrypt data with a digital envelope.
 
@@ -714,29 +737,21 @@ Decrypt data from a digital envelope.
 
 ### 7.1 Padding Utilities
 
-Block cipher padding schemes.
+Block cipher padding schemes. These are **module-level functions** (not classes) with the following signatures:
 
-| Class | Input | Output |
-|-------|-------|--------|
-| `PKCS5Padding` | `data, block_size` | Padded bytes |
-| `PKCS5UnPadding` | `data` | Unpadded bytes |
-| `PKCS7Padding` | `data, block_size` | Padded bytes |
-| `PKCS7UnPadding` | `data` | Unpadded bytes |
-| `ZeroPadding` | `data, block_size` | Padded bytes |
-| `ZeroUnPadding` | `data` | Unpadded bytes |
-| `ISO10126Padding` | `data, block_size` | Padded bytes |
-| `ISO10126UnPadding` | `data` | Unpadded bytes |
-| `NoPadding` | `data, block_size` | Padded bytes |
-| `NoUnPadding` | `data` | Unpadded bytes |
+- `PKCS5Padding(data, block_size=16) -> bytes` / `PKCS5UnPadding(data) -> bytes`
+- `PKCS7Padding(data, block_size=16) -> bytes` / `PKCS7UnPadding(data) -> bytes`
+- `ZeroPadding(data, block_size=16) -> bytes` / `ZeroUnPadding(data) -> bytes`
+- `ISO10126Padding(data, block_size=16) -> bytes` / `ISO10126UnPadding(data) -> bytes`
+- `NoPadding(data, block_size=16) -> bytes` / `NoUnPadding(data) -> bytes`
+
+> Note: `PKCS5Padding` and `PKCS7Padding` behave identically in this implementation (block size fixed at 16).
 
 ```python
 from pysmx.common import PKCS7Padding, PKCS7UnPadding
 
-padder = PKCS7Padding()
-padded = padder.pad(b'hello', block_size=16)
-
-unpadder = PKCS7UnPadding()
-original = unpadder.unpad(padded)
+padded = PKCS7Padding(b'hello', block_size=16)
+original = PKCS7UnPadding(padded)
 ```
 
 ### 7.2 Random Source Utilities (CSPRNG)
@@ -820,7 +835,7 @@ from pysmx.SM9._cryptography import (
 
 `from pysmx.crypto import ...`
 
-### 5.1 `pbkdf2_hmac(hash_name, password, salt, iterations, dklen=None) -> bytes`
+### 9.1 `pbkdf2_hmac(hash_name, password, salt, iterations, dklen=None) -> bytes`
 
 PBKDF2 key derivation function (PKCS #5 v2.0).
 
@@ -836,7 +851,7 @@ PBKDF2 key derivation function (PKCS #5 v2.0).
 |--------|------|-------------|
 | Derived key | `bytes` | Derived key of length `dklen` |
 
-### 5.2 `hashlib` Module
+### 9.2 `hashlib` Module
 
 `pysmx.crypto.hashlib` extends Python's standard `hashlib` with SM3 support.
 
@@ -862,7 +877,7 @@ print(h.hexdigest())
 Each supported algorithm is available as a module-level constructor:
 
 ```python
-from pysmx.crypto.hashing import sm3
+from pysmx.crypto.hashlib import sm3
 h = sm3(b'hello')
 ```
 
@@ -977,9 +992,11 @@ keystream = zuc.zuc_generate_keystream()
 from pysmx.SM9 import (
     Sign, Verify, generate_master_key, generate_user_sign_key,
 )
+from pysmx.SM9._SM9 import _g2_scalar_mult, _g2_to_affine, _sm9_P2
 
-ks, P_pub_s = generate_master_key()
-d_A = generate_user_sign_key(ks, b'alice', hid=1)
+ke, P_pub_e = generate_master_key()
+P_pub_s = _g2_to_affine(_g2_scalar_mult(ke, _sm9_P2))  # signing master public key = [ke]P2
+d_A = generate_user_sign_key(ke, b'alice', hid=1)
 sig = Sign(b'hello', d_A, P_pub_s, hid=1)
 assert Verify(b'hello', sig, b'alice', P_pub_s, hid=1)
 ```

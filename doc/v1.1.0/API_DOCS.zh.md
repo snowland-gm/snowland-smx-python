@@ -33,7 +33,7 @@ print(kp.publicKey)   # bytes
 print(kp.privateKey)  # bytes
 ```
 
-### 1.2 `Sign(E, DA, K, len_para=64, Hexstr=0, encoding='utf-8', uid=None) -> bytes`
+### 1.2 `Sign(E, DA, K, len_para, Hexstr=0, encoding='utf-8', uid=None) -> bytes`
 
 使用 SM2 对消息签名。
 
@@ -42,7 +42,7 @@ print(kp.privateKey)  # bytes
 | `E` | `str` / `bytes` | — | 消息或其哈希值。若为十六进制字符串，需设置 `Hexstr=1`；传入 `uid` 时 `E` 视为原始消息 `M` |
 | `DA` | `str` / `bytes` | — | 私钥（十六进制字符串或 bytes） |
 | `K` | `str` | — | 随机数（十六进制字符串） |
-| `len_para` | `int` | `64` | 固定值，长度参数 |
+| `len_para` | `int` | `—` | 长度参数（必填，固定为 64） |
 | `Hexstr` | `int` | `0` | `E` 为十六进制字符串时设为 `1`，否则为 `0` |
 | `encoding` | `str` | `'utf-8'` | 当 `E` 为 `str` 且 `Hexstr=0` 时的字符编码 |
 | `uid` | `str` / `bytes` | `None` | 用户标识 IDA。传入时按 GM/T 0003 的 `e = SM3(ZA || M)` 计算摘要（其中 `ZA = SM3(ENTL || IDA || a || b || xG || yG || xA || yA)` 由 `uid` 与公钥 `PA` 导出）；`None` 时保持原有"对摘要签名"的行为，向后兼容 |
@@ -51,7 +51,7 @@ print(kp.privateKey)  # bytes
 |--------|------|-------------|
 | 签名 | `bytes` 或 `None` | 格式: `r || s`；失败时返回 `None` |
 
-### 1.3 `Verify(Sign, E, PA, len_para=64, Hexstr=0, encoding='utf-8', uid=None) -> bool`
+### 1.3 `Verify(Sign, E, PA, len_para, Hexstr=0, encoding='utf-8', uid=None) -> bool`
 
 验证 SM2 签名。
 
@@ -60,7 +60,7 @@ print(kp.privateKey)  # bytes
 | `Sign` | `str` / `bytes` | — | `r || s` 格式的签名 |
 | `E` | `str` / `bytes` | — | 待验证的消息；传入 `uid` 时 `E` 视为原始消息 `M` |
 | `PA` | `str` / `bytes` | — | 公钥 |
-| `len_para` | `int` | `64` | 固定值 |
+| `len_para` | `int` | `—` | 长度参数（必填，固定为 64） |
 | `Hexstr` | `int` | `0` | `E` 为十六进制字符串时设为 `1` |
 | `encoding` | `str` | `'utf-8'` | 当 `E` 为 `str` 且 `Hexstr=0` 时的编码 |
 | `uid` | `str` / `bytes` | `None` | 用户标识 IDA，须与签名时使用的 `uid` 一致；传入时按 `e = SM3(ZA || M)` 验签，其中 `ZA` 由 `uid` 与公钥 `PA` 导出 |
@@ -89,7 +89,7 @@ print(kp.privateKey)  # bytes
 
 > 该函数在 `pysmx.SM2` 中已导出，可直接 `from pysmx.SM2 import get_za`。
 
-### 1.5 `Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3') -> bytes`
+### 1.5 `Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3', mode='C1C3C2') -> bytes`
 
 使用 SM2 加密消息。
 
@@ -101,12 +101,13 @@ print(kp.privateKey)  # bytes
 | `Hexstr` | `int` | `0` | `M` 为十六进制字符串时设为 `1` |
 | `encoding` | `str` | `'utf-8'` | 当 `M` 为 `str` 且 `Hexstr=0` 时的编码 |
 | `hash_algorithm` | `str` | `'sm3'` | 哈希算法名称（支持 hashlib 所有算法） |
+| `mode` | `str` | `'C1C3C2'` | 密文点序：`'C1C3C2'`（默认）或 `'C1C2C3'` |
 
 | 返回值 | 类型 | 说明 |
 |--------|------|-------------|
 | 密文 | `bytes` 或 `None` | 格式: `C1 || C3 || C2`；失败返回 `None` |
 
-### 1.6 `Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3') -> bytes`
+### 1.6 `Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3', mode='C1C3C2') -> bytes`
 
 解密 SM2 密文。
 
@@ -118,6 +119,7 @@ print(kp.privateKey)  # bytes
 | `Hexstr` | `int` | `0` | `C` 为十六进制字符串时设为 `1` |
 | `encoding` | `str` | `'utf-8'` | 编码方式 |
 | `hash_algorithm` | `str` / `callable` | `'sm3'` | 哈希算法（名称或可调用对象） |
+| `mode` | `str` | `'C1C3C2'` | 密文点序：`'C1C3C2'`（默认）或 `'C1C2C3'` |
 
 | 返回值 | 类型 | 说明 |
 |--------|------|-------------|
@@ -232,7 +234,7 @@ print(sm3.hexdigest())
 |--------|------|-------------|
 | 派生密钥 | `str` | 长度为 `klen * 2` 的十六进制字符串 |
 
-### 2.6 工具函数
+### 2.6 工具函数（内部）
 
 | 函数 | 说明 |
 |----------|-------------|
@@ -240,6 +242,8 @@ print(sm3.hexdigest())
 | `byte2str(msg, decode='utf-8')` | 字节列表转字符串 |
 | `hex2byte(msg)` | 十六进制字符串转字节列表 |
 | `rotate_left(a, k)` | 32 位循环左移 |
+
+> 注意：以上工具函数定义在 `pysmx.SM3._SM3` 模块中，包级 `pysmx.SM3` 未重新导出，如需使用请从 `pysmx.SM3._SM3` 导入。
 
 ---
 
@@ -365,7 +369,7 @@ class SM4BlockCyphers(BlockCyphers):
 
 ### 3.5 `SM4Stream` 类（流式加解密）
 
-提供 `update()` / `finalize()` 增量处理接口，适用于大文件/流式数据，无需一次性加载全部数据到内存。支持全部 5 种模式。
+提供 `update()` / `finalize()` 增量处理接口，适用于大文件/流式数据，无需一次性加载全部数据到内存。类构造支持 `method='ecb'/'cbc'/'cfb'/'ofb'/'pcbc'` 五种模式；注意：仅在 `cbc`/`pcbc` 模式下 `finalize()` 会对末尾不足一块的数据自动填充，**使用 `ecb`/`cfb`/`ofb` 时输入长度须为 16 字节的整数倍**（否则会出错）。
 
 ```python
 class SM4Stream:
@@ -459,8 +463,8 @@ class ZUC(Iterable):
 
 | 参数 | 类型 | 说明 |
 |-----------|------|-------------|
-| `key` | `list[int]` | 16 字节密钥，表示为 16 个整数的列表 |
-| `iv` | `list[int]` | 16 字节 IV，表示为 16 个整数的列表 |
+| `key` | `list[int]` / `bytes` | 16 字节密钥，表示为 16 个 int 的列表或长度为 16 的 `bytes` |
+| `iv` | `list[int]` / `bytes` | 16 字节 IV，表示为 16 个 int 的列表或长度为 16 的 `bytes` |
 | `buffer_size` | `int` | 密钥流生成的缓冲区大小（默认: 100） |
 
 #### 方法:
@@ -504,44 +508,46 @@ key_stream = zuc.zuc_generate_keystream()
 
 SM9 是基于标识的密码体制（IBC），使用 BN 曲线上的双线性配对，支持数字签名、加密和 KEM。
 
-### 5.1 `generate_master_key() -> Tuple[bytes, bytes]`
+### 5.1 `generate_master_key() -> Tuple[int, Tuple[int, int]]`
 
-生成主密钥对。
+生成主密钥（主私钥 `ke` 与加密主公钥 `P_pub_e`）。SM9 的签名与加密共用同一个主私钥 `ke`，仅主公钥不同：加密主公钥 `P_pub_e = [ke]P1`（G1 点），签名主公钥 `P_pub_s = [ke]P2`（G2 点）。本函数只返回加密主公钥 `P_pub_e`；签名所需的 `P_pub_s` 需用主私钥 `ke` 另行计算（见 5.10 示例）。
 
 | 返回值 | 类型 | 说明 |
 |--------|------|-------------|
-| `(ks, P_pub_s)` | `(bytes, bytes)` | 主私钥和主公钥 |
+| `ke` | `int` | 主私钥（随机数） |
+| `P_pub_e` | `Tuple[int, int]` | 加密主公钥 = [ke]P1，G1 仿射点 `(x, y)` |
 
-### 5.2 `generate_user_sign_key(ks, ID_A, hid=1) -> bytes`
+### 5.2 `generate_user_sign_key(ke, ID_A, hid=1) -> Tuple[int, int]`
 
-从主密钥派生用户签名私钥。
+从主私钥派生用户签名私钥。
 
 | 参数 | 类型 | 默认值 | 说明 |
 |-----------|------|---------|-------------|
-| `ks` | `bytes` | — | 主签名私钥 |
+| `ke` | `int` | — | 主私钥（即 `generate_master_key` 返回的 `ke`） |
 | `ID_A` | `bytes` | — | 用户标识 |
 | `hid` | `int` | `1` | 哈希标识（0x01 表示签名） |
 
 | 返回值 | 类型 | 说明 |
 |--------|------|-------------|
-| `d_A` | `bytes` | 用户签名私钥 |
+| `d_A` | `Tuple[int, int]` | 用户签名私钥，G1 仿射点 `(x, y)` |
 
-### 5.3 `Sign(M, d_A, P_pub_s, hid=1) -> bytes`
+### 5.3 `Sign(M, d_A, P_pub_s, hid=1, hashfunc='sm3') -> bytes`
 
 使用 SM9 对消息签名。
 
 | 参数 | 类型 | 默认值 | 说明 |
 |-----------|------|---------|-------------|
 | `M` | `bytes` | — | 待签名消息 |
-| `d_A` | `bytes` | — | 用户签名私钥 |
-| `P_pub_s` | `bytes` | — | 主公钥 |
+| `d_A` | `Tuple[int, int]` | — | 用户签名私钥（G1 点，由 `generate_user_sign_key` 返回） |
+| `P_pub_s` | `Tuple` | — | 签名主公钥（G2 点，由 `P_pub_s = [ke]P2` 计算） |
 | `hid` | `int` | `1` | 哈希标识 |
+| `hashfunc` | `str` | `'sm3'` | 哈希算法名称（默认 SM3） |
 
 | 返回值 | 类型 | 说明 |
 |--------|------|-------------|
 | 签名 | `bytes` | SM9 签名 |
 
-### 5.4 `Verify(M, signature, ID_A, P_pub_s, hid=1) -> bool`
+### 5.4 `Verify(M, signature, ID_A, P_pub_s, hid=1, hashfunc='sm3') -> bool`
 
 验证 SM9 签名。
 
@@ -550,24 +556,29 @@ SM9 是基于标识的密码体制（IBC），使用 BN 曲线上的双线性配
 | `M` | `bytes` | — | 原始消息 |
 | `signature` | `bytes` | — | 待验证签名 |
 | `ID_A` | `bytes` | — | 签名者标识 |
-| `P_pub_s` | `bytes` | — | 主公钥 |
+| `P_pub_s` | `Tuple` | — | 签名主公钥（G2 点） |
 | `hid` | `int` | `1` | 哈希标识 |
+| `hashfunc` | `str` | `'sm3'` | 哈希算法名称（须与签名一致） |
 
 | 返回值 | 类型 | 说明 |
 |--------|------|-------------|
 | 结果 | `bool` | 有效返回 `True` |
 
-### 5.5 `generate_user_enc_key(ke, ID_B, hid=3) -> bytes`
+### 5.5 `generate_user_enc_key(ke, ID_B, hid=3) -> Tuple`
 
 派生用户加密私钥。
 
 | 参数 | 类型 | 默认值 | 说明 |
 |-----------|------|---------|-------------|
-| `ke` | `bytes` | — | 主加密私钥 |
+| `ke` | `int` | — | 主私钥（即 `generate_master_key` 返回的 `ke`） |
 | `ID_B` | `bytes` | — | 用户标识 |
 | `hid` | `int` | `3` | 哈希标识（0x03 表示加密） |
 
-### 5.6 `Encrypt(M, ID_B, P_pub_e, hid=3) -> bytes`
+| 返回值 | 类型 | 说明 |
+|--------|------|-------------|
+| `d_B` | `Tuple` | 用户加密私钥，G2 点 |
+
+### 5.6 `Encrypt(M, ID_B, P_pub_e, hid=3, klen=32, hashfunc='sm3') -> bytes`
 
 对标识加密消息。
 
@@ -575,46 +586,51 @@ SM9 是基于标识的密码体制（IBC），使用 BN 曲线上的双线性配
 |-----------|------|---------|-------------|
 | `M` | `bytes` | — | 明文 |
 | `ID_B` | `bytes` | — | 接收方标识 |
-| `P_pub_e` | `bytes` | — | 主公钥 |
+| `P_pub_e` | `Tuple[int, int]` | — | 加密主公钥（G1 点，由 `generate_master_key` 返回） |
 | `hid` | `int` | `3` | 哈希标识 |
+| `klen` | `int` | `32` | 派生密钥长度（字节） |
+| `hashfunc` | `str` | `'sm3'` | 哈希算法名称 |
 
-### 5.7 `Decrypt(C, d_B, ID_B, hid=3) -> bytes`
+### 5.7 `Decrypt(C, d_B, ID_B, hid=3, hashfunc='sm3') -> bytes`
 
 解密 SM9 密文。
 
 | 参数 | 类型 | 默认值 | 说明 |
 |-----------|------|---------|-------------|
 | `C` | `bytes` | — | 密文 |
-| `d_B` | `bytes` | — | 用户加密私钥 |
+| `d_B` | `Tuple` | — | 用户加密私钥（G2 点，由 `generate_user_enc_key` 返回） |
 | `ID_B` | `bytes` | — | 接收方标识 |
 | `hid` | `int` | `3` | 哈希标识 |
+| `hashfunc` | `str` | `'sm3'` | 哈希算法名称（须与加密一致） |
 
-### 5.8 `KEM_Encapsulate(ID_B, P_pub_e, klen, hid=2) -> Tuple[bytes, bytes]`
+### 5.8 `KEM_Encapsulate(ID_B, P_pub_e, klen, hid=2, hashfunc='sm3') -> Tuple[bytes, bytes]`
 
 SM9 密钥封装 — 封装共享秘密。
 
 | 参数 | 类型 | 说明 |
 |-----------|------|-------------|
 | `ID_B` | `bytes` | 接收方标识 |
-| `P_pub_e` | `bytes` | 主公钥 |
+| `P_pub_e` | `Tuple[int, int]` | 加密主公钥（G1 点） |
 | `klen` | `int` | 期望密钥长度（字节） |
 | `hid` | `int` | 哈希标识（默认: `2`） |
+| `hashfunc` | `str` | 哈希算法名称（默认: `'sm3'`） |
 
 | 返回值 | 类型 | 说明 |
 |--------|------|-------------|
 | `(K, C)` | `(bytes, bytes)` | 共享密钥和密文 |
 
-### 5.9 `KEM_Decapsulate(C1, d_B, ID_B, klen, hid=2) -> bytes`
+### 5.9 `KEM_Decapsulate(C1, d_B, ID_B, klen, hid=2, hashfunc='sm3') -> bytes`
 
 SM9 密钥封装 — 解封装共享秘密。
 
 | 参数 | 类型 | 说明 |
 |-----------|------|-------------|
 | `C1` | `bytes` | 封装返回的密文 |
-| `d_B` | `bytes` | 用户加密私钥 |
+| `d_B` | `Tuple` | 用户加密私钥（G2 点） |
 | `ID_B` | `bytes` | 接收方标识 |
 | `klen` | `int` | 期望密钥长度（字节） |
 | `hid` | `int` | 哈希标识 |
+| `hashfunc` | `str` | 哈希算法名称（须与封装一致，默认 `'sm3'`） |
 
 ### 5.10 工具函数
 
@@ -633,18 +649,24 @@ from pysmx.SM9 import (
     generate_user_enc_key,
     KEM_Encapsulate, KEM_Decapsulate,
 )
+# 计算签名主公钥所需的内部函数（P_pub_s = [ke]P2）
+from pysmx.SM9._SM9 import _g2_scalar_mult, _g2_to_affine, _sm9_P2
+
+# 主私钥 ke 与加密主公钥 P_pub_e（签名与加密共用同一主私钥 ke）
+ke, P_pub_e = generate_master_key()
+# 签名主公钥 P_pub_s = [ke]P2（G2 点），需自行计算
+P_pub_s = _g2_to_affine(_g2_scalar_mult(ke, _sm9_P2))
 
 # 签名与验签
-ks, P_pub_s = generate_master_key()
-d_A = generate_user_sign_key(ks, b'alice', hid=1)
+d_A = generate_user_sign_key(ke, b'alice', hid=1)
 sig = Sign(b'hello', d_A, P_pub_s, hid=1)
 assert Verify(b'hello', sig, b'alice', P_pub_s, hid=1)
 
 # 加密与解密
-ke, P_pub_e = generate_master_key()
 d_B = generate_user_enc_key(ke, b'bob', hid=3)
 c = Encrypt(b'secret', b'bob', P_pub_e, hid=3)
 m = Decrypt(c, d_B, b'bob', hid=3)
+assert m == b'secret'
 
 # 密钥封装
 K_enc, C = KEM_Encapsulate(b'bob', P_pub_e, 32, hid=2)
@@ -674,7 +696,7 @@ EnvelopeResult = namedtuple('EnvelopeResult',
 | `ciphertext` | `bytes` | SM4-CBC 密文 |
 | `sm2_keypair` | `KeyPair` | 使用的 SM2 密钥对（可能自动生成） |
 
-### 6.2 `envelope_encrypt(plaintext, *, public_key=None, sm2_keypair=None, sm4_key=None, iv=None) -> EnvelopeResult`
+### 6.2 `envelope_encrypt(plaintext, public_key=None, sm2_keypair=None, sm4_key=None, iv=None) -> EnvelopeResult`
 
 数字信封加密。
 
@@ -714,29 +736,21 @@ EnvelopeResult = namedtuple('EnvelopeResult',
 
 ### 7.1 填充工具
 
-分组密码填充方案。
+分组密码填充方案。这些均为**模块级函数**（不是类），签名如下：
 
-| 类 | 输入 | 输出 |
-|-------|-------|--------|
-| `PKCS5Padding` | `data, block_size` | 填充后字节 |
-| `PKCS5UnPadding` | `data` | 去填充后字节 |
-| `PKCS7Padding` | `data, block_size` | 填充后字节 |
-| `PKCS7UnPadding` | `data` | 去填充后字节 |
-| `ZeroPadding` | `data, block_size` | 填充后字节 |
-| `ZeroUnPadding` | `data` | 去填充后字节 |
-| `ISO10126Padding` | `data, block_size` | 填充后字节 |
-| `ISO10126UnPadding` | `data` | 去填充后字节 |
-| `NoPadding` | `data, block_size` | 填充后字节 |
-| `NoUnPadding` | `data` | 去填充后字节 |
+- `PKCS5Padding(data, block_size=16) -> bytes` / `PKCS5UnPadding(data) -> bytes`
+- `PKCS7Padding(data, block_size=16) -> bytes` / `PKCS7UnPadding(data) -> bytes`
+- `ZeroPadding(data, block_size=16) -> bytes` / `ZeroUnPadding(data) -> bytes`
+- `ISO10126Padding(data, block_size=16) -> bytes` / `ISO10126UnPadding(data) -> bytes`
+- `NoPadding(data, block_size=16) -> bytes` / `NoUnPadding(data) -> bytes`
+
+> 注：`PKCS5Padding` 与 `PKCS7Padding` 在本实现中行为一致（块大小固定为 16）。
 
 ```python
 from pysmx.common import PKCS7Padding, PKCS7UnPadding
 
-padder = PKCS7Padding()
-padded = padder.pad(b'hello', block_size=16)
-
-unpadder = PKCS7UnPadding()
-original = unpadder.unpad(padded)
+padded = PKCS7Padding(b'hello', block_size=16)
+original = PKCS7UnPadding(padded)
 ```
 
 ### 7.2 随机源工具 (CSPRNG)
@@ -824,7 +838,7 @@ from pysmx.SM9._cryptography import (
 
 `from pysmx.crypto import ...`
 
-### 5.1 `pbkdf2_hmac(hash_name, password, salt, iterations, dklen=None) -> bytes`
+### 9.1 `pbkdf2_hmac(hash_name, password, salt, iterations, dklen=None) -> bytes`
 
 PBKDF2 密钥派生函数（PKCS #5 v2.0）。
 
@@ -840,7 +854,7 @@ PBKDF2 密钥派生函数（PKCS #5 v2.0）。
 |--------|------|-------------|
 | 派生密钥 | `bytes` | 长度为 `dklen` 的派生密钥 |
 
-### 5.2 `hashlib` 模块
+### 9.2 `hashlib` 模块
 
 `pysmx.crypto.hashlib` 扩展了 Python 标准库 `hashlib`，增加了 SM3 支持。
 
@@ -866,7 +880,7 @@ print(h.hexdigest())
 每种支持的算法都可以作为模块级构造函数使用：
 
 ```python
-from pysmx.crypto.hashing import sm3
+from pysmx.crypto.hashlib import sm3
 h = sm3(b'hello')
 ```
 
@@ -981,9 +995,11 @@ keystream = zuc.zuc_generate_keystream()
 from pysmx.SM9 import (
     Sign, Verify, generate_master_key, generate_user_sign_key,
 )
+from pysmx.SM9._SM9 import _g2_scalar_mult, _g2_to_affine, _sm9_P2
 
-ks, P_pub_s = generate_master_key()
-d_A = generate_user_sign_key(ks, b'alice', hid=1)
+ke, P_pub_e = generate_master_key()
+P_pub_s = _g2_to_affine(_g2_scalar_mult(ke, _sm9_P2))  # 签名主公钥 = [ke]P2
+d_A = generate_user_sign_key(ke, b'alice', hid=1)
 sig = Sign(b'hello', d_A, P_pub_s, hid=1)
 assert Verify(b'hello', sig, b'alice', P_pub_s, hid=1)
 ```
