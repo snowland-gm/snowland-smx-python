@@ -32,11 +32,13 @@ import time
 from datetime import datetime
 from time import perf_counter
 
-import pysmx
-
+# Make the repo root importable so `import pysmx` works when the script is run
+# directly (e.g. `python scripts/benchmark.py`), without installing the package.
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
+
+import pysmx
 
 
 def _pkg_version(dist_name):
