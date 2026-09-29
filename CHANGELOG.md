@@ -13,6 +13,12 @@
 - **SM2 点运算整数化**：`kG` 内部点运算由十六进制字符串解析/格式化改为整数元组表示，标量乘由 `bin(k)[3:]`+`reduce`+lambda 改为从 MSB 起的整型双加迭代，去除字符串解析开销；删除未使用的 `Inverse`
 - **SM9 去除冗余转换**：KDF 直接透传 bytes（去掉 hex 往返），G1/G2 标量乘改用从高位起的位迭代，去除 `bits` 列表分配；`hmac` 提到模块顶部
 - **密码学模块统一随机源与优化**：新增 `pysmx.common.random`（CSPRNG），SM2/SM9 复用全仓库统一随机源；收敛 `HashBackend` 注册逻辑
+- **SM9 Fp12 固定窗口取幂**：`_fp12_pow` 由逐位平方-乘（乘法次数约 popcount）改为 w=4（十六进制分组）固定窗口取幂，预建 16 项表 `table[d]=a^d` 后按指数 hex 字符查表相乘，乘法次数降至约 n/4，benchmark 提速约 1.3x（base 相关表每次调用按传入的 `a` 重建，不全局缓存）
+- **SM9 Miller 循环位展开改用 `bin()`**：`final_exp_bilinear` 中原 `while 移位收集 LSB + reverse` 的写法改为 `bin(N)[2:]` 直接生成 MSB-first 位序列，逻辑等价更简洁
+- **SM4 轮函数字节拆分写法验证**：实测 `int.to_bytes(4,'big')` 取 4 字节比移位+掩码 `(ka>>24)&0xff` 写法快约 2x（前者为 C 级实现），故保留 `to_bytes` 写法（早前"去 to_bytes 优化"经基准验证反而更慢，已回退）
+- **SM4 CBC 链模式去冗余对象分配**：加密环直接用上一个密文块作下一轮 iv（去除每块 `bytes(output_data[i:i+16])` 重切片拷贝），输出由 `bytearray` 反复 `+=` 改为 `list` 收集末次 `b''.join`，去除冗余拷贝
+- **SM4 流模式（SM4Stream）分块输出去冗余对象分配**：ECB/CBC/CFB/OFB/PCBC 全部 11 处分块循环的输出由 `bytearray` 反复 `+=` 改为 `list` 收集末次 `b''.join`，与块密码层 CBC 优化保持一致（轮函数 `one_round` 的字节拆分采用 `to_bytes` 写法）
+- **SM4 ECB 分片统一**：ECB 各 16 字节块相互独立，流路径（``SM4Stream`` 的 ``_update_ecb`` / ``_encrypt_blocks_ecb`` / ``_decrypt_block_ecb``）改为与非流路径（``crypt_ecb`` 的 ``b''.join(map(one_round, 分片))``）一致的**内联分片**写法（分片 → 逐块 ``one_round`` → 一次性 ``join``），不引入额外的顶层函数。CBC/CFB/OFB/PCBC 为链式依赖（每块依赖上一块输出），不可分片，保持串行
 
 ### 新功能
 
@@ -56,7 +62,7 @@
 
 - 脚本迁移至 `scripts/` 目录，并同步 `.github/workflows/test.yml`、`MANIFEST.in` 与文档引用
 - 调整 `.gitignore` 忽略 demo 生成输出文件
-- 相对导入整理
+- 相对导入整理；进一步将 `pysmx` 包内全部相对导入改为基于包名的绝对导入（`from pysmx.xxx import ...`），消除相对路径依赖
 
 ## v1.0.0.post2 (2026-07-18)
 
