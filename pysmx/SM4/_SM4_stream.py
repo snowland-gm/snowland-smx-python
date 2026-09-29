@@ -140,31 +140,30 @@ class SM4Stream:
             return self._update_pcbc_encrypt()
 
     def _update_ecb(self):
-        """ECB: process all complete 16-byte blocks."""
+        """ECB: process all complete 16-byte blocks (non-stream sharded style)."""
         n = (len(self._buffer) // self.block_size) * self.block_size
         if n == 0:
             return b''
-        output = bytearray()
-        for i in range(0, n, self.block_size):
-            output += self._sm4.one_round(
-                self._sm4.sk, self._buffer[i:i + self.block_size])
+        tmp = [self._buffer[i:i + self.block_size]
+               for i in range(0, n, self.block_size)]
+        out = b''.join(map(lambda x: self._sm4.one_round(self._sm4.sk, x), tmp))
         self._buffer = self._buffer[n:]
-        return bytes(output)
+        return out
 
     def _update_cbc_encrypt(self):
         """CBC encrypt: XOR with IV, encrypt, output is new IV."""
         n = (len(self._buffer) // self.block_size) * self.block_size
         if n == 0:
             return b''
-        output = bytearray()
+        output = []
         for i in range(0, n, self.block_size):
             block = XOR_BYTES(
                 self._buffer[i:i + self.block_size], self._iv)
             cipher = self._sm4.one_round(self._sm4.sk, block)
             self._iv = cipher
-            output += cipher
+            output.append(cipher)
         self._buffer = self._buffer[n:]
-        return bytes(output)
+        return b''.join(output)
 
     def _update_cfb_ofb_common(self, sm4_instance, feedback):
         """CFB/OFB common: generate keystream, XOR with input.
@@ -184,7 +183,7 @@ class SM4Stream:
 
         Returns output bytes and updates self._iv.
         """
-        output = bytearray()
+        output = []
         for i in range(0, len(data), self.block_size):
             block = data[i:i + self.block_size]
             keystream = sm4_instance.one_round(sm4_instance.sk, self._iv)
@@ -193,23 +192,23 @@ class SM4Stream:
                 self._iv = cipher          # CFB
             else:
                 self._iv = keystream       # OFB
-            output += cipher
-        return bytes(output)
+            output.append(cipher)
+        return b''.join(output)
 
     def _update_pcbc_encrypt(self):
         """PCBC encrypt: XOR(IV, plaintext), encrypt, IV = cipher XOR plain."""
         n = (len(self._buffer) // self.block_size) * self.block_size
         if n == 0:
             return b''
-        output = bytearray()
+        output = []
         for i in range(0, n, self.block_size):
             block = self._buffer[i:i + self.block_size]
             cipher = self._sm4.one_round(
                 self._sm4.sk, XOR_BYTES(self._iv, block))
             self._iv = XOR_BYTES(cipher, block)
-            output += cipher
+            output.append(cipher)
         self._buffer = self._buffer[n:]
-        return bytes(output)
+        return b''.join(output)
 
     # -- Decrypt: update ------------------------------------------------
 
@@ -231,14 +230,14 @@ class SM4Stream:
 
         CFB feedback: IV = ciphertext (input block), not plaintext.
         """
-        output = bytearray()
+        output = []
         for i in range(0, len(data), self.block_size):
             block = data[i:i + self.block_size]
             keystream = self._sm4_enc.one_round(self._sm4_enc.sk, self._iv)
             plain = XOR_BYTES(block, keystream)
             self._iv = block  # CFB: feedback ciphertext (input)
-            output += plain
-        return bytes(output)
+            output.append(plain)
+        return b''.join(output)
 
     def _decrypt_block_ofb(self, data):
         """OFB decrypt: encrypt IV, XOR with ciphertext. Uses encrypt key."""
@@ -260,30 +259,29 @@ class SM4Stream:
         return output
 
     def _decrypt_block_ecb(self, data):
-        output = bytearray()
-        for i in range(0, len(data), self.block_size):
-            output += self._sm4.one_round(
-                self._sm4.sk, data[i:i + self.block_size])
-        return bytes(output)
+        # ECB can be sharded: each block is independent (non-stream style)
+        tmp = [data[i:i + self.block_size]
+               for i in range(0, len(data), self.block_size)]
+        return b''.join(map(lambda x: self._sm4.one_round(self._sm4.sk, x), tmp))
 
     def _decrypt_block_cbc(self, data):
-        output = bytearray()
+        output = []
         for i in range(0, len(data), self.block_size):
             block = data[i:i + self.block_size]
             decrypted = self._sm4.one_round(self._sm4.sk, block)
-            output += XOR_BYTES(decrypted, self._iv)
+            output.append(XOR_BYTES(decrypted, self._iv))
             self._iv = block  # next IV is the ciphertext
-        return bytes(output)
+        return b''.join(output)
 
     def _decrypt_block_pcbc(self, data):
-        output = bytearray()
+        output = []
         for i in range(0, len(data), self.block_size):
             block = data[i:i + self.block_size]
             decrypted = self._sm4.one_round(self._sm4.sk, block)
             plain = XOR_BYTES(decrypted, self._iv)
             self._iv = XOR_BYTES(block, plain)  # IV = cipher XOR plain
-            output += plain
-        return bytes(output)
+            output.append(plain)
+        return b''.join(output)
 
     # -- Encrypt: finalize ----------------------------------------------
 
@@ -310,30 +308,29 @@ class SM4Stream:
                 self._sm4, 'keystream', data)
 
     def _encrypt_blocks_ecb(self, data):
-        output = bytearray()
-        for i in range(0, len(data), self.block_size):
-            output += self._sm4.one_round(
-                self._sm4.sk, data[i:i + self.block_size])
-        return bytes(output)
+        # ECB can be sharded: each block is independent (non-stream style)
+        tmp = [data[i:i + self.block_size]
+               for i in range(0, len(data), self.block_size)]
+        return b''.join(map(lambda x: self._sm4.one_round(self._sm4.sk, x), tmp))
 
     def _encrypt_blocks_cbc(self, data):
-        output = bytearray()
+        output = []
         for i in range(0, len(data), self.block_size):
             block = XOR_BYTES(data[i:i + self.block_size], self._iv)
             cipher = self._sm4.one_round(self._sm4.sk, block)
             self._iv = cipher
-            output += cipher
-        return bytes(output)
+            output.append(cipher)
+        return b''.join(output)
 
     def _encrypt_blocks_pcbc(self, data):
-        output = bytearray()
+        output = []
         for i in range(0, len(data), self.block_size):
             block = data[i:i + self.block_size]
             cipher = self._sm4.one_round(
                 self._sm4.sk, XOR_BYTES(self._iv, block))
             self._iv = XOR_BYTES(cipher, block)
-            output += cipher
-        return bytes(output)
+            output.append(cipher)
+        return b''.join(output)
 
     # -- Decrypt: finalize ----------------------------------------------
 

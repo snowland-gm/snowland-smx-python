@@ -85,24 +85,23 @@ class BlockCyphers(metaclass=ABCMeta):
     def crypt_cbc(self, iv, input_data):
         # SM4-CBC buffer encryption/decryption
         i = 0
-        output_data = bytearray()
-        tmp_input = [0] * self.block_size
+        output_data = []
         if self.mode == ENCRYPT:
             input_data = self.padding(input_data, self.block_size)
             length = len(input_data)
             while length > 0:
-                out_block = self.one_round(self.sk, XOR_BYTES(input_data[i:i + self.block_size], iv[0:self.block_size]))
-                output_data += out_block
-                iv = bytes(output_data[i:i + self.block_size])
+                out_block = self.one_round(self.sk, XOR_BYTES(input_data[i:i + self.block_size], iv))
+                output_data.append(out_block)
+                iv = out_block
                 i += self.block_size
                 length -= self.block_size
+            output_data = b''.join(output_data)
         else:
             ivs = [input_data[i:i + self.block_size] for i in range(0, len(input_data), self.block_size)]
             ivs.insert(0, iv)
             tmp = map(lambda x: self.one_round(self.sk, x), ivs[1:])
-            # output_data = reduce(lambda a, b: a + b, map(XOR, tmp, ivs[:-1]), bytearray())
             output_data = b''.join(map(XOR_BYTES, tmp, ivs[:-1]))
-            output_data = self.unpadding(bytes(output_data), self.block_size)
+            output_data = self.unpadding(output_data, self.block_size)
         return bytes(output_data)
 
     def crypt_pcbc(self, iv, input_data):
