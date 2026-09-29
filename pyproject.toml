@@ -35,4 +35,4 @@ bench = ["gmssl", "gmssl-pyx"]
 Homepage = "https://github.com/snowland-gm/snowland-smx-python"
 
 [tool.setuptools]
-packages = ["pysmx", "pysmx.*"]
+packages = { find = { where = ["."], include = ["pysmx*"] } }
