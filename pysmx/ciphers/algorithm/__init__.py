@@ -5,7 +5,7 @@
 # @time: 2021/2/8 20:09
 # @Software: PyCharm
 
-from ._algorithm import (
+from pysmx.ciphers.algorithm._algorithm import (
     SM4Algorithm,
     SM4ModePCBC,
     sm4_encrypt_ecb,

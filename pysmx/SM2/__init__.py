@@ -12,7 +12,7 @@ from pysmx.SM2._SM2 import (
 )
 
 try:
-    from ._cryptography import (
+    from pysmx.SM2._cryptography import (
         SM2EllipticCurve,
         SM2SM3SignatureAlgorithm,
         SM2SHA256SignatureAlgorithm,

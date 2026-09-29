@@ -6,10 +6,10 @@
 # @Software: PyCharm
 
 
-from ._ZUC import ZUC
+from pysmx.ZUC._ZUC import ZUC
 
 try:
-    from ._cryptography import (
+    from pysmx.ZUC._cryptography import (
         ZUCAlgorithm,
         zuc_encrypt,
         zuc_decrypt,

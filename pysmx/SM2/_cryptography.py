@@ -27,7 +27,7 @@ try:
     from cryptography.hazmat.primitives import hashes
     from cryptography.exceptions import InvalidSignature
 
-    from ._SM2 import (
+    from pysmx.SM2._SM2 import (
         Sign, Verify, generate_keypair,
         get_random_str, get_hash as _sm2_get_hash,
     )
@@ -254,7 +254,7 @@ class SM2EllipticCurvePrivateKey(object):
     def encrypt_sm2(self, data, hash_algorithm='sm3', mode='C1C3C2'):
         if isinstance(data, str):
             data = data.encode('utf-8')
-        from ._SM2 import Encrypt
+        from pysmx.SM2._SM2 import Encrypt
         return Encrypt(
             data, self._public_key._public_key,
             len_para=self._curve.key_size,
@@ -263,7 +263,7 @@ class SM2EllipticCurvePrivateKey(object):
         )
 
     def decrypt_sm2(self, cipher, hash_algorithm='sm3', mode='C1C3C2'):
-        from ._SM2 import Decrypt
+        from pysmx.SM2._SM2 import Decrypt
         return Decrypt(
             cipher, self._private_key,
             len_para=self._curve.key_size,

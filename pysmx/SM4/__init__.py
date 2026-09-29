@@ -6,11 +6,11 @@
 # @Software: PyCharm
 
 
-from ._SM4 import *
-from ._SM4_stream import SM4Stream
+from pysmx.SM4._SM4 import *
+from pysmx.SM4._SM4_stream import SM4Stream
 
 try:
-    from ._cryptography import (
+    from pysmx.SM4._cryptography import (
         SM4Algorithm, SM4ModePCBC, SM4StreamCipher,
         sm4_encrypt_ecb, sm4_decrypt_ecb,
         sm4_encrypt_cbc, sm4_decrypt_cbc,
