@@ -55,7 +55,7 @@
 
 - 重整文档版本目录：`doc/v1.0.0post1 → doc/v1.0.0`、`doc/v1.0.1 → doc/v1.1.0`
 - API 文档新增统一随机源章节（7.2 CSPRNG）
-- 新增依赖不足分析与改进计划文档（`doc/improvement_plan.md`、`doc/TODO.md`）
+- `pysmx/SM2/_SM2.py` 公开函数（`Sign`/`Verify`/`Encrypt`/`Decrypt`/`get_za`/`generate_keypair`）docstring 补全与口径统一：补齐缺失的 `len_para`/`Hexstr`/`encoding`/`hash_algorithm`/`mode`/`return` 参数说明，并将 `E`/`M` 统一描述为先消息后哈希（传 `uid` 时视为原始消息 `M`、`Hexstr=1` 视为十六进制串），与 `API_DOCS` 及 `Sign` 实现口径一致
 
 ### 杂项
 

@@ -313,6 +313,8 @@ def get_za(uid, PA, len_para=64, hash_algorithm='sm3', encoding='utf-8'):
     :param uid: user distinguishable identifier IDA, string or bytes
     :param PA: public key PA (x||y), hex string or bytes
     :param len_para: hex length of a field element, currently fixed to 64
+    :param hash_algorithm: hash algorithm name (default 'sm3')
+    :param encoding: character encoding when uid is str (default 'utf-8')
     :return: ZA as hex digest string
     """
     if isinstance(uid, str):
@@ -345,16 +347,20 @@ def get_za(uid, PA, len_para=64, hash_algorithm='sm3', encoding='utf-8'):
 def Verify(Sign, E, PA, len_para=64, Hexstr=0, encoding='utf-8', uid=None):
     """
     verify function
-    :param Sign: signature r||s
-    :param E: E message hash; the raw message M itself when uid is given
-    :param PA: PA public key
-    :param len_para:
+    :param Sign: signature r||s, hex string or bytes
+    :param E: message or its hash. If it is a hex string, set Hexstr=1;
+              when uid is given, E is treated as the raw message M.
+    :param PA: public key (x||y), hex string or bytes
+    :param len_para: length parameter (currently fixed at 64)
+    :param Hexstr: set to 1 when E is a hex string, otherwise 0
+    :param encoding: character encoding when E is str and Hexstr=0
     :param uid: user distinguishable identifier IDA, string or bytes. When given,
                 the digest follows the GM/T 0003 ZA||M structure, i.e.
                 e = SM3(ZA || M), with ZA derived from uid and the public key PA.
                 None (default) keeps the original structure, taking E as the
                 digest itself, for backward compatibility.
-    :return:
+    :return: True if the signature is valid, otherwise False (returns 0 when
+             r + s == 0, a degenerate case)
     """
     if isinstance(Sign, str):
         r = int(Sign[0:len_para], 16)
@@ -411,9 +417,13 @@ def Verify(Sign, E, PA, len_para=64, Hexstr=0, encoding='utf-8', uid=None):
 
 def Sign(E, DA, K, len_para, Hexstr=0, encoding='utf-8', uid=None):
     """sign function
-     :param E message hash, hex string，uid 给出时为消息原文 M
-     :param DA private key, hex string
-     :param K random number, hex string
+     :param E: message or its hash. If it is a hex string, set Hexstr=1;
+               when uid is given, E is treated as the raw message M.
+     :param DA: private key, hex string or bytes
+     :param K: random number, hex string
+     :param len_para: length parameter (required, fixed at 64)
+     :param Hexstr: set to 1 when E is a hex string, otherwise 0
+     :param encoding: character encoding when E is str and Hexstr=0
      :param uid: 用户可辨别标识 IDA，字符串或字节；给出时按 GM/T 0003 的
                  ZA||M 结构计算摘要 e = SM3(ZA || M)，ZA 由 uid 与 DA 对应公钥导出
                  （需额外一次点乘运算）。为 None（默认）时保持原有结构，即 E 直接
@@ -463,15 +473,16 @@ def Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3',
             mode='C1C3C2'):
     """
     encrypt function
-    :param M: message
-    :param PA: PA public key
-    :param len_para: currently fixed to 64
-    :param Hexstr: whether M is hex string
-    :param encoding: if M is not hex string
-    :param hash_algorithm:
+    :param M: message, str or bytes. If it is a hex string, set Hexstr=1
+    :param PA: public key (x||y), hex string or bytes
+    :param len_para: length parameter (currently fixed at 64)
+    :param Hexstr: set to 1 when M is a hex string, otherwise 0
+    :param encoding: character encoding when M is str and Hexstr=0
+    :param hash_algorithm: hash algorithm name (any supported by hashlib)
     :param mode: ciphertext mode, 'C1C3C2' (default, same as gmssl)
                  or 'C1C2C3'
-    :return:
+    :return: ciphertext as bytes (C1 || C3 || C2 for C1C3C2, or
+             C1 || C2 || C3 for C1C2C3); None on failure
     """
     if Hexstr:
         msg = M  # input message itself is hex string
@@ -516,12 +527,16 @@ def Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3',
 def Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3',
             mode='C1C3C2'):
     """
-    decrypt function,
-    :param C ciphertext (hex string)
-    :param DA private key
-    :param len_para length, currently only supports 64
+    decrypt function
+    :param C: ciphertext, hex string or bytes
+    :param DA: private key, hex string or bytes
+    :param len_para: length parameter (currently fixed at 64)
+    :param Hexstr: set to 1 when C is a hex string, otherwise 0
+    :param encoding: character encoding (reserved, currently unused in decryption)
+    :param hash_algorithm: hash algorithm name used during encryption
     :param mode: ciphertext mode, 'C1C3C2' (default, same as gmssl)
                  or 'C1C2C3'
+    :return: plaintext as bytes, or None if the C3 integrity check fails
     """
     f = getattr(hashlib, hash_algorithm)()
     if isinstance(DA, str):
@@ -567,6 +582,11 @@ KeyPair = namedtuple('KeyPair', ['publicKey', 'privateKey'])
 
 
 def generate_keypair(len_param=64):
+    """Generate an SM2 key pair.
+
+    :param len_param: hex length of a field element, currently fixed to 64
+    :return: KeyPair(publicKey, privateKey), both bytes
+    """
     d = get_random_str(len_param)
     PA = kG(int(d, 16), sm2_G, len_param)
     return KeyPair(bytes.fromhex(PA), bytes.fromhex(d))
