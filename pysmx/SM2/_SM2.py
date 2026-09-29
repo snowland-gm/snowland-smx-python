@@ -295,13 +295,65 @@ def Inverse(data, M, len_para=64):
     return tempA
 
 
-def Verify(Sign, E, PA, len_para=64, Hexstr=0, encoding='utf-8'):
+def _message_bytes(E, Hexstr, encoding):
+    """Normalise the message argument to raw bytes, for the ZA||M structure"""
+    if isinstance(E, (bytes, bytearray)):
+        return bytes.fromhex(E.hex()) if Hexstr else bytes(E)
+    if isinstance(E, str):
+        return bytes.fromhex(E) if Hexstr else E.encode(encoding)
+    raise ValueError('Typeof message must be string or bytes')
+
+
+def get_za(uid, PA, len_para=64, hash_algorithm='sm3', encoding='utf-8'):
+    """Compute the user hash ZA = H256(ENTL || IDA || a || b || xG || yG || xA || yA)
+
+    In GM/T 0003 the signature is made over e = SM3(ZA || M); ZA binds the
+    signature to the user distinguishable identifier and to the signer's
+    public key.
+    :param uid: user distinguishable identifier IDA, string or bytes
+    :param PA: public key PA (x||y), hex string or bytes
+    :param len_para: hex length of a field element, currently fixed to 64
+    :return: ZA as hex digest string
+    """
+    if isinstance(uid, str):
+        uid = uid.encode(encoding)
+    elif isinstance(uid, bytearray):
+        uid = bytes(uid)
+    elif not isinstance(uid, bytes):
+        raise ValueError('Typeof uid must be string or bytes')
+    if isinstance(PA, (bytes, bytearray)):
+        PA = PA.hex()
+    if not isinstance(PA, str):
+        raise ValueError('Typeof PA must be string or bytes')
+    entl = len(uid) * 8
+    if entl >= 1 << 16:
+        raise ValueError('Typeof uid too long, bit length must be less than 65536')
+    form = '%%0%dx' % len_para
+    data = '%04x%s%s%s%s%s%s%s' % (
+        entl,
+        uid.hex(),
+        form % sm2_a,
+        form % sm2_b,
+        sm2_G[0:len_para],
+        sm2_G[len_para:2 * len_para],
+        PA[0:len_para],
+        PA[len_para:2 * len_para],
+    )
+    return get_hash(hash_algorithm, data, Hexstr=1)
+
+
+def Verify(Sign, E, PA, len_para=64, Hexstr=0, encoding='utf-8', uid=None):
     """
     verify function
     :param Sign: signature r||s
-    :param E: E message hash
+    :param E: E message hash; the raw message M itself when uid is given
     :param PA: PA public key
     :param len_para:
+    :param uid: user distinguishable identifier IDA, string or bytes. When given,
+                the digest follows the GM/T 0003 ZA||M structure, i.e.
+                e = SM3(ZA || M), with ZA derived from uid and the public key PA.
+                None (default) keeps the original structure, taking E as the
+                digest itself, for backward compatibility.
     :return:
     """
     if isinstance(Sign, str):
@@ -311,13 +363,25 @@ def Verify(Sign, E, PA, len_para=64, Hexstr=0, encoding='utf-8'):
         r = int(Sign.hex()[:len_para], 16)
         s = int(Sign.hex()[len_para:2 * len_para], 16)
 
-    if Hexstr:
-        e = int(E, 16)  # input message itself is hex string
+    if uid is None:
+        if Hexstr:
+            e = int(E, 16)  # input message itself is hex string
+        else:
+            if isinstance(E, str):
+                E = E.encode(encoding)
+            E = E.hex()  # convert message to hex string
+            e = int(E, 16)
     else:
-        if isinstance(E, str):
-            E = E.encode(encoding)
-        E = E.hex()  # convert message to hex string
-        e = int(E, 16)
+        # GM/T 0003: e = SM3(ZA || M)
+        if isinstance(PA, str):
+            PA_hex = PA
+        elif isinstance(PA, (bytes, bytearray)):
+            PA_hex = PA.hex()
+        else:
+            raise ValueError('Typeof PA must be string or bytes')
+        ZA = get_za(uid, PA_hex, len_para, encoding=encoding)
+        e = int(get_hash('sm3', ZA + _message_bytes(E, Hexstr, encoding).hex(),
+                         Hexstr=1), 16)
 
     if isinstance(PA, str):
         pass
@@ -345,19 +409,36 @@ def Verify(Sign, E, PA, len_para=64, Hexstr=0, encoding='utf-8'):
     return r == ((e + x) % sm2_N)
 
 
-def Sign(E, DA, K, len_para, Hexstr=0, encoding='utf-8'):
+def Sign(E, DA, K, len_para, Hexstr=0, encoding='utf-8', uid=None):
     """sign function
-     :param E message hash, hex string
+     :param E message hash, hex string，uid 给出时为消息原文 M
      :param DA private key, hex string
      :param K random number, hex string
+     :param uid: 用户可辨别标识 IDA，字符串或字节；给出时按 GM/T 0003 的
+                 ZA||M 结构计算摘要 e = SM3(ZA || M)，ZA 由 uid 与 DA 对应公钥导出
+                 （需额外一次点乘运算）。为 None（默认）时保持原有结构，即 E 直接
+                 作为摘要使用，向后兼容。
      """
-    if Hexstr:
-        e = int(E, 16)  # input message itself is hex string
+    if uid is None:
+        if Hexstr:
+            e = int(E, 16)  # input message itself is hex string
+        else:
+            if isinstance(E, str):
+                E = E.encode(encoding)
+            E = E.hex()  # convert message to hex string
+            e = int(E, 16)
     else:
-        if isinstance(E, str):
-            E = E.encode(encoding)
-        E = E.hex()  # convert message to hex string
-        e = int(E, 16)
+        # GM/T 0003: e = SM3(ZA || M)，ZA 依赖签名方公钥，由私钥 DA 导出
+        if isinstance(DA, str):
+            DA_hex = DA
+        elif isinstance(DA, (bytes, bytearray)):
+            DA_hex = DA.hex()
+        else:
+            raise ValueError('DA must be str or bytes')
+        PA = kG(int(DA_hex, 16), sm2_G, len_para)
+        ZA = get_za(uid, PA, len_para, encoding=encoding)
+        e = int(get_hash('sm3', ZA + _message_bytes(E, Hexstr, encoding).hex(),
+                         Hexstr=1), 16)
     if isinstance(DA, str):
         d = int(DA, 16)
     elif isinstance(DA, (bytes, bytearray)):

@@ -8,7 +8,7 @@
 
 from pysmx.SM2._SM2 import (
     Sign, Verify, Encrypt, Decrypt, generate_keypair, KeyPair,
-    sm2_N, sm2_G, kG,
+    sm2_N, sm2_G, kG, get_za,
 )
 
 try:

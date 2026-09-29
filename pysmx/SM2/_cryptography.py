@@ -81,6 +81,19 @@ def _resolve_hash_name(signature_algorithm):
     return str(alg)
 
 
+def _check_uid_hash_name(hash_name):
+    """uid signatures follow GM/T 0003: e = SM3(ZA || M), ZA itself is SM3 based.
+
+    The ZA||M structure is only defined for SM3 (the standard's H256), so any
+    other digest is rejected instead of being silently downgraded to SM3.
+    """
+    if hash_name != 'sm3':
+        raise ValueError(
+            "uid signature mode requires the SM3 hash algorithm, "
+            "got {!r}".format(hash_name)
+        )
+
+
 # ============================================================
 # SM2 Public Key
 # ============================================================
@@ -133,15 +146,30 @@ class SM2EllipticCurvePublicKey(object):
         y = int(key_hex[len_para:2 * len_para], 16)
         return EllipticCurvePublicNumbers(x, y, self._curve)
 
-    def verify(self, signature, data, signature_algorithm):
+    def verify(self, signature, data, signature_algorithm, uid=None):
+        """Verify an SM2 signature over ``data``.
+
+        :param uid: user distinguishable identifier IDA (str/bytes). When given,
+                    the GM/T 0003 ZA||M structure is used, i.e. the signature is
+                    verified against e = SM3(ZA || M) with ZA derived from ``uid``
+                    and this public key; data is then the raw message M.
+                    None (default) keeps signing over the digest of data.
+        """
         _check_bytes("data", data)
         _check_bytes("signature", signature)
         hash_name = _resolve_hash_name(signature_algorithm)
-        data_hash = _sm2_get_hash(hash_name, data, Hexstr=0)
-        result = Verify(
-            signature, data_hash, self._public_key,
-            len_para=self._curve.key_size, Hexstr=1
-        )
+        if uid is None:
+            data_hash = _sm2_get_hash(hash_name, data, Hexstr=0)
+            result = Verify(
+                signature, data_hash, self._public_key,
+                len_para=self._curve.key_size, Hexstr=1
+            )
+        else:
+            _check_uid_hash_name(hash_name)
+            result = Verify(
+                signature, data, self._public_key,
+                len_para=self._curve.key_size, Hexstr=0, uid=uid
+            )
         if not result:
             raise InvalidSignature("SM2 signature verification failed.")
 
@@ -185,15 +213,30 @@ class SM2EllipticCurvePrivateKey(object):
     def public_key(self):
         return self._public_key
 
-    def sign(self, data, signature_algorithm):
+    def sign(self, data, signature_algorithm, uid=None):
+        """Sign ``data``.
+
+        :param uid: user distinguishable identifier IDA (str/bytes). When given,
+                    the GM/T 0003 ZA||M structure is used, i.e. e = SM3(ZA || M)
+                    with ZA derived from ``uid`` and the signer's public key;
+                    data is then the raw message M. None (default) keeps signing
+                    over the digest of data.
+        """
         _check_bytes("data", data)
         hash_name = _resolve_hash_name(signature_algorithm)
-        data_hash = _sm2_get_hash(hash_name, data, Hexstr=0)
         K = get_random_str(self._curve.key_size)
-        sig = Sign(
-            data_hash, self._private_key, K,
-            len_para=self._curve.key_size, Hexstr=1
-        )
+        if uid is None:
+            data_hash = _sm2_get_hash(hash_name, data, Hexstr=0)
+            sig = Sign(
+                data_hash, self._private_key, K,
+                len_para=self._curve.key_size, Hexstr=1
+            )
+        else:
+            _check_uid_hash_name(hash_name)
+            sig = Sign(
+                data, self._private_key, K,
+                len_para=self._curve.key_size, Hexstr=0, uid=uid
+            )
         if sig is None:
             raise ValueError("SM2 signing failed (retry with a different K)")
         return sig
