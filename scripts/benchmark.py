@@ -3,7 +3,7 @@
 """Performance benchmarks for snowland-smx (pysmx) compared with gmssl.
 
 This script measures throughput (MB/s) and operations-per-second for the
-SM2 / SM3 / SM4 and ZUC implementations shipped in pysmx, and -- when the
+SM2 / SM3 / SM4 / ZUC and SM9 implementations shipped in pysmx, and -- when the
 third-party ``gmssl`` / ``gmssl-pyx`` packages are installed -- the equivalent
 routines from those libraries, so they can be compared side by side.
 
@@ -20,10 +20,11 @@ Usage:
     python scripts/benchmark.py --quick         # smaller data sizes, faster run
     python scripts/benchmark.py --md doc/benchmark.md  # write a Markdown report
 
-Supported algorithm selectors: sm2, sm3, sm4, zuc
+Supported algorithm selectors: sm2, sm3, sm4, zuc, sm9
 """
 
 import argparse
+import importlib.metadata
 import json
 import os
 import sys
@@ -31,9 +32,20 @@ import time
 from datetime import datetime
 from time import perf_counter
 
+import pysmx
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
+
+
+def _pkg_version(dist_name):
+    """Return the installed distribution version, or 'unknown' if undetectable."""
+    try:
+        return importlib.metadata.version(dist_name)
+    except Exception:  # pragma: no cover - environment dependent
+        return "unknown"
+
 
 # ---------------------------------------------------------------------------
 # gmssl availability (optional comparison baseline #1)
@@ -51,6 +63,8 @@ except Exception as _exc:  # pragma: no cover - depends on environment
     HAVE_GMSSL = False
     _GMSSL_ERROR = _exc
 
+GMSSL_VERSION = _pkg_version("gmssl") if HAVE_GMSSL else None
+
 # ---------------------------------------------------------------------------
 # gmssl-pyx availability (optional comparison baseline #2, Cython/GmSSL C)
 # ---------------------------------------------------------------------------
@@ -66,11 +80,14 @@ try:
         sm4_cbc_padding_encrypt as _px_sm4_cbc_encrypt,
         sm4_cbc_padding_decrypt as _px_sm4_cbc_decrypt,
     )
+    from gmssl_pyx import SM9MasterKey as _px_sm9_master  # noqa: F401
     HAVE_PYX = True
     _PX_ERROR = None
 except Exception as _exc:  # pragma: no cover - depends on environment
     HAVE_PYX = False
     _PX_ERROR = _exc
+
+PYX_VERSION = _pkg_version("gmssl-pyx") if HAVE_PYX else None
 
 # ---------------------------------------------------------------------------
 # pysmx imports (fail fast if the package is broken)
@@ -89,6 +106,20 @@ from pysmx.SM2 import (  # noqa: E402
 from pysmx.SM3 import hexdigest as _sm3_hex  # noqa: E402
 from pysmx.SM2._SM2 import get_random_str  # noqa: E402
 from pysmx.ZUC import ZUC  # noqa: E402
+from pysmx.SM9._SM9 import (  # noqa: E402
+    generate_master_key as _sm9_master_key,
+    generate_user_sign_key as _sm9_user_sign_key,
+    generate_user_enc_key as _sm9_user_enc_key,
+    Sign as _sm9_sign,
+    Verify as _sm9_verify,
+    Encrypt as _sm9_encrypt,
+    Decrypt as _sm9_decrypt,
+    KEM_Encapsulate as _sm9_kem_enc,
+    KEM_Decapsulate as _sm9_kem_dec,
+    _g2_to_affine as _sm9_g2_to_affine,
+    _g2_scalar_mult as _sm9_g2_scalar_mult,
+    _sm9_P2 as _sm9_P2,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -134,8 +165,8 @@ def _fmt_num(x):
 # ---------------------------------------------------------------------------
 # Data sets
 # ---------------------------------------------------------------------------
-SIZES_FULL = [64, 1024, 64 * 1024, 1024 * 1024]
-SIZES_QUICK = [64, 1024, 16 * 1024]
+SIZES_FULL = [64, 1024, 64 * 1024, 1024 * 1024, 4 * 1024 * 1024]
+SIZES_QUICK = [64, 1024, 64 * 1024, 1024 * 1024]
 # SM2 plaintext size: must stay <= 255 bytes (gmssl-pyx sm2_encrypt limit)
 SM2_PLAIN_SIZE = 64
 
@@ -253,7 +284,9 @@ def _build_pyx_ops():
     """Register gmssl-pyx (Cython/GmSSL C) comparison operations.
 
     gmssl-pyx exposes a functional API and only supports SM4 in CBC mode
-    (no ECB), so only CBC operations are registered here.
+    (no ECB); for SM2 it supports encrypt/decrypt/sign/verify; for SM9 it
+    exposes identity-based encryption (master keygen, user-key extraction,
+    encrypt, decrypt) but NOT SM9 signature or KEM.
     """
     if not HAVE_PYX:
         return
@@ -316,6 +349,37 @@ def _build_pyx_ops():
 
         return op
 
+    # SM9 (identity-based encryption only): gmssl-pyx exposes master-key
+    # generation, user-key extraction, encrypt and decrypt via the
+    # SM9MasterKey / SM9MasterPublicKey / SM9PrivateKey classes. It does NOT
+    # expose SM9 signature or KEM, so those operations remain pysmx-only.
+    px_sm9_id = b"bench-recipient@example.com"
+    px_sm9_pt = b"SM9 benchmark payload (32-byte plaintext block)."
+    px_sm9_master = _px_sm9_master.generate()
+    px_sm9_pub = px_sm9_master.public_key()
+    px_sm9_priv = px_sm9_master.extract_key(px_sm9_id)
+    px_sm9_ct = px_sm9_pub.encrypt(px_sm9_id, px_sm9_pt)
+
+    def _px_sm9_master_keygen(size):
+        def op():
+            return _px_sm9_master.generate()
+        return op
+
+    def _px_sm9_user_enc_keygen(size):
+        def op():
+            return px_sm9_master.extract_key(px_sm9_id)
+        return op
+
+    def _px_sm9_encrypt_op(size):
+        def op():
+            return px_sm9_pub.encrypt(px_sm9_id, px_sm9_pt)
+        return op
+
+    def _px_sm9_decrypt_op(size):
+        def op():
+            return px_sm9_priv.decrypt(px_sm9_id, px_sm9_ct)
+        return op
+
     COMPARISONS.append(("gmssl-pyx", {
         ("sm3", "hash"): _px_sm3_op,
         ("sm4", "cbc_encrypt"): _px_sm4_cbc_enc,
@@ -324,6 +388,10 @@ def _build_pyx_ops():
         ("sm2", "decrypt"): _px_sm2_dec,
         ("sm2", "sign"): _px_sm2_sign_op,
         ("sm2", "verify"): _px_sm2_verify_op,
+        ("sm9", "master_keygen"): _px_sm9_master_keygen,
+        ("sm9", "user_enc_keygen"): _px_sm9_user_enc_keygen,
+        ("sm9", "encrypt"): _px_sm9_encrypt_op,
+        ("sm9", "decrypt"): _px_sm9_decrypt_op,
     }))
 
 
@@ -461,6 +529,67 @@ def bench_zuc(results, sizes):
     # gmssl / gmssl-pyx have no ZUC implementation -> no comparison column
 
 
+def bench_sm9(results, sizes):
+    # SM9 is identity-based (no streaming), so the API does not take a size
+    # argument. We still pass the amount of data actually processed so that
+    # the MB/s column is meaningful: sign/verify/encrypt/decrypt process the
+    # message M (len(M) bytes), KEM processes the shared key (klen bytes),
+    # and key-generation operations have no input data (size 0).
+    ke, P_pub_e = _sm9_master_key()
+    P2 = ((_sm9_P2[0], _sm9_P2[1]), (_sm9_P2[2], _sm9_P2[3]))
+    P_pub_s = _sm9_g2_to_affine(_sm9_g2_scalar_mult(ke, P2))
+    ID_A = b'bench-signer@example.com'
+    ID_B = b'bench-recipient@example.com'
+    d_A = _sm9_user_sign_key(ke, ID_A, hid=0x01)
+    d_B = _sm9_user_enc_key(ke, ID_B, hid=0x03)
+    M = b'SM9 benchmark payload (32-byte plaintext block).'
+    M_LEN = len(M)
+    KEM_KLEN = 32
+    sig = _sm9_sign(M, d_A, P_pub_s, hid=0x01)
+    C = _sm9_encrypt(M, ID_B, P_pub_e, hid=0x03)
+    _, C1 = _sm9_kem_enc(ID_B, P_pub_e, KEM_KLEN, hid=0x02)
+
+    def _p_master_keygen():
+        return _sm9_master_key()
+
+    def _p_user_sign_keygen():
+        return _sm9_user_sign_key(ke, ID_A, hid=0x01)
+
+    def _p_user_enc_keygen():
+        return _sm9_user_enc_key(ke, ID_B, hid=0x03)
+
+    def _p_sign():
+        return _sm9_sign(M, d_A, P_pub_s, hid=0x01)
+
+    def _p_verify():
+        return _sm9_verify(M, sig, ID_A, P_pub_s, hid=0x01)
+
+    def _p_encrypt():
+        return _sm9_encrypt(M, ID_B, P_pub_e, hid=0x03)
+
+    def _p_decrypt():
+        return _sm9_decrypt(C, d_B, ID_B, hid=0x03)
+
+    def _p_kem_encapsulate():
+        return _sm9_kem_enc(ID_B, P_pub_e, 32, hid=0x02)
+
+    def _p_kem_decapsulate():
+        return _sm9_kem_dec(C1, d_B, ID_B, 32, hid=0x02)
+
+    for op_name, op, size in (
+        ("master_keygen", _p_master_keygen, 0),
+        ("user_sign_keygen", _p_user_sign_keygen, 0),
+        ("user_enc_keygen", _p_user_enc_keygen, 0),
+        ("sign", _p_sign, M_LEN),
+        ("verify", _p_verify, M_LEN),
+        ("encrypt", _p_encrypt, M_LEN),
+        ("decrypt", _p_decrypt, M_LEN),
+        ("kem_encapsulate", _p_kem_encapsulate, KEM_KLEN),
+        ("kem_decapsulate", _p_kem_decapsulate, KEM_KLEN),
+    ):
+        _bench_one("sm9", op_name, op, size, results)
+
+
 # ---------------------------------------------------------------------------
 # Reporting
 # ---------------------------------------------------------------------------
@@ -556,9 +685,16 @@ def _render_markdown(results, sizes, comparisons, python_version):
     L.append("## 测试环境")
     L.append("")
     L.append("- Python: %s" % python_version)
+    L.append("- pysmx: %s" % getattr(pysmx, "__version__", "unknown"))
     if comparisons:
         for label, _ in comparisons:
-            L.append("- 对比库 %s: 已启用" % label)
+            if label == "gmssl":
+                ver = GMSSL_VERSION
+            elif label == "gmssl-pyx":
+                ver = PYX_VERSION
+            else:
+                ver = "unknown"
+            L.append("- 对比库 %s: 已启用 (版本 %s)" % (label, ver))
     else:
         L.append("- 对比库: 无（仅 pysmx）")
     size_str = " / ".join(_fmt_size(s) for s in sizes)
@@ -599,6 +735,7 @@ def _run(algo, results, sizes, comparisons):
         "sm3": bench_sm3,
         "sm4": bench_sm4,
         "zuc": bench_zuc,
+        "sm9": bench_sm9,
     }
     fn = dispatch[algo]
     algo_rows = []
@@ -613,7 +750,7 @@ def main(argv=None):
     )
     parser.add_argument(
         "algorithms", nargs="*",
-        choices=["sm2", "sm3", "sm4", "zuc"],
+        choices=["sm2", "sm3", "sm4", "zuc", "sm9"],
         help="algorithms to benchmark (default: all)",
     )
     parser.add_argument("--json", dest="json_path", default=None,
@@ -625,14 +762,14 @@ def main(argv=None):
                         help="use smaller data sizes for a faster run")
     args = parser.parse_args(argv)
 
-    selected = args.algorithms or ["sm2", "sm3", "sm4", "zuc"]
+    selected = args.algorithms or ["sm2", "sm3", "sm4", "zuc", "sm9"]
     sizes = SIZES_QUICK if args.quick else SIZES_FULL
 
     COMPARISONS.clear()
     print("snowland-smx (pysmx) performance benchmark")
     print("Python: %s" % sys.version.split()[0])
     if HAVE_GMSSL:
-        print("gmssl : available -> comparison ENABLED")
+        print("gmssl : available (%s) -> comparison ENABLED" % GMSSL_VERSION)
         _build_gmssl_ops()
     else:
         print("gmssl : NOT installed -> skipped")
@@ -640,7 +777,7 @@ def main(argv=None):
             sys.stderr.write("  [debug] gmssl import error: %s\n" %
                              _GMSSL_ERROR)
     if HAVE_PYX:
-        print("gmssl-pyx : available -> comparison ENABLED")
+        print("gmssl-pyx : available (%s) -> comparison ENABLED" % PYX_VERSION)
         _build_pyx_ops()
     else:
         print("gmssl-pyx : NOT installed -> skipped")
@@ -651,6 +788,10 @@ def main(argv=None):
     if "zuc" in selected:
         print("note  : gmssl / gmssl-pyx have no ZUC implementation; "
               "ZUC is benchmarked for pysmx only")
+    if "sm9" in selected:
+        print("note  : gmssl-pyx covers SM9 identity-based encryption "
+              "(master keygen, user key extraction, encrypt, decrypt) but "
+              "not SM9 signature or KEM, so those ops are pysmx-only")
 
     results = []
     for algo in selected:

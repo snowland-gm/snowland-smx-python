@@ -5,10 +5,11 @@
 ## 测试环境
 
 - Python: 3.13.5
-- 对比库 gmssl: 已启用
-- 对比库 gmssl-pyx: 已启用
+- pysmx: 1.1.0
+- 对比库 gmssl: 已启用 (版本 3.2.2)
+- 对比库 gmssl-pyx: 已启用 (版本 2.1.0)
 - 数据规模: 64 B / 1 KB / 64 KB / 1 MB
-- 生成时间: 2026-08-21 14:13:04
+- 生成时间: 2026-09-29 19:30:11
 - 复现命令: `py scripts/benchmark.py --quick`
 
 > speedup = pysmx MB/s ÷ 对比库 MB/s
@@ -19,36 +20,36 @@
 
 | operation | size | ops/s | MB/s | speedup (vs pysmx) |
 | --- | --- | --- | --- | --- |
-| keygen | - | 6.4 | 0.0 | - |
-| encrypt | 64 B | 5.9 | 0.0 | - |
-| gmssl | | 5.0 | 0.0 | 1.19x |
-| gmssl-pyx | | 2.5 | 0.0 | 2.41x |
-| decrypt | 64 B | 2.2 | 0.0 | - |
-| gmssl | | 3.4 | 0.0 | 0.66x |
-| gmssl-pyx | | 2.5 | 0.0 | 0.89x |
-| sign | 64 B | 2.7 | 0.0 | - |
-| gmssl | | 6.0 | 0.0 | 0.45x |
-| gmssl-pyx | | 2.9 | 0.0 | 0.92x |
-| verify | 64 B | 2.3 | 0.0 | - |
-| gmssl | | 6.1 | 0.0 | 0.38x |
-| gmssl-pyx | | 6.3 | 0.0 | 0.37x |
+| keygen | - | 8.9 | 0.0 | - |
+| encrypt | 64 B | 5.1 | 0.0 | - |
+| gmssl | | 6.3 | 0.0 | 0.82x |
+| gmssl-pyx | | 7.5 | 0.0 | 0.69x |
+| decrypt | 64 B | 9.9 | 0.0 | - |
+| gmssl | | 9.5 | 0.0 | 1.04x |
+| gmssl-pyx | | 8.5 | 0.0 | 1.17x |
+| sign | 64 B | 9.4 | 0.0 | - |
+| gmssl | | 8.8 | 0.0 | 1.07x |
+| gmssl-pyx | | 10.0 | 0.0 | 0.94x |
+| verify | 64 B | 3.6 | 0.0 | - |
+| gmssl | | 3.0 | 0.0 | 1.23x |
+| gmssl-pyx | | 7.6 | 0.0 | 0.48x |
 
 ## SM3
 
 | operation | size | ops/s | MB/s | speedup (vs pysmx) |
 | --- | --- | --- | --- | --- |
-| hash | 64 B | 1.9 | 0.0 | - |
-| gmssl | | 3.5 | 0.0 | 0.53x |
-| gmssl-pyx | | 4.0 | 0.0 | 0.47x |
-| hash | 1 KB | 3.1 | 0.0 | - |
-| gmssl | | 2.3 | 0.0 | 1.35x |
-| gmssl-pyx | | 7.3 | 0.0 | 0.43x |
-| hash | 64 KB | 0.5 | 0.0 | - |
-| gmssl | | 1.5 | 0.1 | 0.33x |
-| gmssl-pyx | | 9.1 | 0.6 | 0.05x |
-| hash | 1 MB | 0.3 | 0.3 | - |
-| gmssl | | 0.2 | 0.2 | 1.58x |
-| gmssl-pyx | | 4.2 | 4.2 | 0.06x |
+| hash | 64 B | 6.4 | 0.0 | - |
+| gmssl | | 5.7 | 0.0 | 1.12x |
+| gmssl-pyx | | 5.2 | 0.0 | 1.22x |
+| hash | 1 KB | 6.6 | 0.0 | - |
+| gmssl | | 5.7 | 0.0 | 1.15x |
+| gmssl-pyx | | 4.5 | 0.0 | 1.48x |
+| hash | 64 KB | 2.5 | 0.2 | - |
+| gmssl | | 2.1 | 0.1 | 1.21x |
+| gmssl-pyx | | 9.8 | 0.6 | 0.25x |
+| hash | 1 MB | 0.2 | 0.2 | - |
+| gmssl | | 0.1 | 0.1 | 1.58x |
+| gmssl-pyx | | 7.0 | 7.0 | 0.03x |
 
 ## SM4
 
@@ -56,57 +57,75 @@
 
 | operation | size | ops/s | MB/s | speedup (vs pysmx) |
 | --- | --- | --- | --- | --- |
-| ecb_encrypt | 64 B | 4.3 | 0.0 | - |
-| gmssl | | 5.7 | 0.0 | 0.76x |
-| ecb_decrypt | 64 B | 9.4 | 0.0 | - |
-| gmssl | | 9.3 | 0.0 | 1.01x |
-| ecb_encrypt | 1 KB | 7.5 | 0.0 | - |
-| gmssl | | 8.4 | 0.0 | 0.89x |
-| ecb_decrypt | 1 KB | 7.5 | 0.0 | - |
-| gmssl | | 2.9 | 0.0 | 2.62x |
-| ecb_encrypt | 64 KB | 5.4 | 0.3 | - |
-| gmssl | | 2.5 | 0.2 | 2.13x |
-| ecb_decrypt | 64 KB | 9.9 | 0.6 | - |
-| gmssl | | 3.6 | 0.2 | 2.76x |
-| ecb_encrypt | 1 MB | 0.4 | 0.4 | - |
-| gmssl | | 0.2 | 0.2 | 2.76x |
-| ecb_decrypt | 1 MB | 1.1 | 1.1 | - |
-| gmssl | | 0.1 | 0.1 | 8.16x |
+| ecb_encrypt | 64 B | 7.5 | 0.0 | - |
+| gmssl | | 7.4 | 0.0 | 1.01x |
+| ecb_decrypt | 64 B | 6.9 | 0.0 | - |
+| gmssl | | 6.6 | 0.0 | 1.04x |
+| ecb_encrypt | 1 KB | 9.9 | 0.0 | - |
+| gmssl | | 5.6 | 0.0 | 1.76x |
+| ecb_decrypt | 1 KB | 2.7 | 0.0 | - |
+| gmssl | | 5.2 | 0.0 | 0.52x |
+| ecb_encrypt | 64 KB | 7.5 | 0.5 | - |
+| gmssl | | 2.9 | 0.2 | 2.59x |
+| ecb_decrypt | 64 KB | 6.5 | 0.4 | - |
+| gmssl | | 3.2 | 0.2 | 2.06x |
+| ecb_encrypt | 1 MB | 0.8 | 0.8 | - |
+| gmssl | | 0.2 | 0.2 | 4.26x |
+| ecb_decrypt | 1 MB | 0.9 | 0.9 | - |
+| gmssl | | 0.2 | 0.2 | 4.78x |
 
 ### CBC
 
 | operation | size | ops/s | MB/s | speedup (vs pysmx) |
 | --- | --- | --- | --- | --- |
-| cbc_encrypt | 64 B | 6.3 | 0.0 | - |
-| gmssl | | 3.5 | 0.0 | 1.82x |
-| gmssl-pyx | | 8.2 | 0.0 | 0.77x |
-| cbc_decrypt | 64 B | 5.0 | 0.0 | - |
-| gmssl | | 5.5 | 0.0 | 0.91x |
-| gmssl-pyx | | 9.9 | 0.0 | 0.51x |
-| cbc_encrypt | 1 KB | 1.8 | 0.0 | - |
-| gmssl | | 5.4 | 0.0 | 0.34x |
-| gmssl-pyx | | 3.8 | 0.0 | 0.49x |
-| cbc_decrypt | 1 KB | 8.2 | 0.0 | - |
-| gmssl | | 2.9 | 0.0 | 2.82x |
-| gmssl-pyx | | 2.8 | 0.0 | 2.99x |
-| cbc_encrypt | 64 KB | 6.8 | 0.4 | - |
-| gmssl | | 1.7 | 0.1 | 3.87x |
-| gmssl-pyx | | 4.6 | 0.3 | 1.46x |
-| cbc_decrypt | 64 KB | 4.0 | 0.2 | - |
-| gmssl | | 2.6 | 0.2 | 1.53x |
-| gmssl-pyx | | 5.0 | 0.3 | 0.79x |
+| cbc_encrypt | 64 B | 5.6 | 0.0 | - |
+| gmssl | | 9.8 | 0.0 | 0.57x |
+| gmssl-pyx | | 8.2 | 0.0 | 0.68x |
+| cbc_decrypt | 64 B | 2.3 | 0.0 | - |
+| gmssl | | 6.4 | 0.0 | 0.36x |
+| gmssl-pyx | | 8.2 | 0.0 | 0.28x |
+| cbc_encrypt | 1 KB | 6.3 | 0.0 | - |
+| gmssl | | 4.8 | 0.0 | 1.30x |
+| gmssl-pyx | | 7.1 | 0.0 | 0.89x |
+| cbc_decrypt | 1 KB | 6.9 | 0.0 | - |
+| gmssl | | 9.8 | 0.0 | 0.71x |
+| gmssl-pyx | | 10.0 | 0.0 | 0.70x |
+| cbc_encrypt | 64 KB | 9.2 | 0.6 | - |
+| gmssl | | 2.8 | 0.2 | 3.27x |
+| gmssl-pyx | | 5.6 | 0.3 | 1.65x |
+| cbc_decrypt | 64 KB | 7.5 | 0.5 | - |
+| gmssl | | 2.8 | 0.2 | 2.64x |
+| gmssl-pyx | | 8.3 | 0.5 | 0.91x |
 | cbc_encrypt | 1 MB | 0.7 | 0.7 | - |
-| gmssl | | 0.1 | 0.1 | 4.81x |
-| gmssl-pyx | | 4.0 | 4.0 | 0.16x |
-| cbc_decrypt | 1 MB | 0.6 | 0.6 | - |
-| gmssl | | 0.2 | 0.2 | 3.50x |
-| gmssl-pyx | | 8.2 | 8.2 | 0.07x |
+| gmssl | | 0.2 | 0.2 | 3.88x |
+| gmssl-pyx | | 5.2 | 5.2 | 0.13x |
+| cbc_decrypt | 1 MB | 0.5 | 0.5 | - |
+| gmssl | | 0.2 | 0.2 | 2.57x |
+| gmssl-pyx | | 8.3 | 8.3 | 0.06x |
 
 ## ZUC
 
 | operation | size | ops/s | MB/s | speedup (vs pysmx) |
 | --- | --- | --- | --- | --- |
-| encrypt | 64 B | 9.8 | 0.0 | - |
-| encrypt | 1 KB | 5.4 | 0.0 | - |
-| encrypt | 64 KB | 2.2 | 0.1 | - |
+| encrypt | 64 B | 7.1 | 0.0 | - |
+| encrypt | 1 KB | 8.4 | 0.0 | - |
+| encrypt | 64 KB | 1.8 | 0.1 | - |
 | encrypt | 1 MB | 0.1 | 0.1 | - |
+
+## SM9
+
+| operation | size | ops/s | MB/s | speedup (vs pysmx) |
+| --- | --- | --- | --- | --- |
+| master_keygen | - | 8.1 | 0.0 | - |
+| gmssl-pyx | | 1.8 | 0.0 | - |
+| user_sign_keygen | - | 9.8 | 0.0 | - |
+| user_enc_keygen | - | 9.6 | 0.0 | - |
+| gmssl-pyx | | 8.1 | 0.0 | - |
+| sign | 48 B | 2.0 | 0.0 | - |
+| verify | 48 B | 1.1 | 0.0 | - |
+| encrypt | 48 B | 2.4 | 0.0 | - |
+| gmssl-pyx | | 8.0 | 0.0 | 0.30x |
+| decrypt | 48 B | 2.2 | 0.0 | - |
+| gmssl-pyx | | 9.8 | 0.0 | 0.23x |
+| kem_encapsulate | 32 B | 2.5 | 0.0 | - |
+| kem_decapsulate | 32 B | 2.0 | 0.0 | - |
